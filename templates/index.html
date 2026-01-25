@@ -49,11 +49,9 @@
             </div>
             <div class="items-list collapsible">
                 {% for item in group.entries %}
-                <div class="item-card">
+                <div class="item-card clickable" data-href="{{ url_for('view', id=item.id) }}">
                     <div class="item-header">
-                        <h3>
-                            <a href="{{ url_for('view', id=item.id) }}">{{ item.title }}</a>
-                        </h3>
+                        <h3>{{ item.title }}</h3>
                     </div>
 
                     {% if item.link %}
@@ -160,9 +158,9 @@ function renderGroupedItems(groups) {
             </div>
             <div class="items-list collapsible">
                 ${group.items.map(item => `
-                    <div class="item-card">
+                    <div class="item-card clickable" data-href="/view/${item.id}">
                         <div class="item-header">
-                            <h3><a href="/view/${item.id}">${escapeHtml(item.title)}</a></h3>
+                            <h3>${escapeHtml(item.title)}</h3>
                         </div>
                         ${item.link ? `<p class="item-link"><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.link.substring(0, 50))}${item.link.length > 50 ? '...' : ''}</a></p>` : ''}
                         <div class="item-progress">
@@ -196,9 +194,10 @@ function renderGroupedItems(groups) {
         </div>
     `).join('');
 
-    // Re-initialize collapse and drag after dynamic render
+    // Re-initialize after dynamic render
     initCollapse();
     initDragAndDrop();
+    initClickableCards();
 }
 
 function escapeHtml(text) {
@@ -379,11 +378,30 @@ function restoreGroupOrder() {
     });
 }
 
+// Clickable cards
+function initClickableCards() {
+    document.querySelectorAll('.item-card.clickable').forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Don't navigate if clicking on interactive elements
+            const target = e.target;
+            const isInteractive = target.closest('a, button, input, form, .btn');
+
+            if (!isInteractive) {
+                const href = this.dataset.href;
+                if (href) {
+                    window.location.href = href;
+                }
+            }
+        });
+    });
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     initCollapse();
     initDragAndDrop();
     restoreGroupOrder();
+    initClickableCards();
 });
 </script>
 {% endblock %}

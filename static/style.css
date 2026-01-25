@@ -276,6 +276,17 @@ footer {
     border-radius: 8px;
     padding: 1rem;
     border: 1px solid #eee;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.item-card.clickable {
+    cursor: pointer;
+}
+
+.item-card.clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: #3498db;
 }
 
 .item-header {
