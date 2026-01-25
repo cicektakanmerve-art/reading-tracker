@@ -54,8 +54,34 @@ def index():
     tags = Tag.query.order_by(Tag.name).all()
     statuses = Status.query.order_by(Status.position).all()
 
+    # Group items by status
+    grouped_items = []
+    status_map = {}
+    for status in statuses:
+        group = {
+            'status': status,
+            'entries': []
+        }
+        grouped_items.append(group)
+        status_map[status.id] = group
+
+    # Add a group for items without status
+    no_status_group = {
+        'status': None,
+        'entries': []
+    }
+    status_map[None] = no_status_group
+
+    for item in items:
+        status_map[item.status_id]['entries'].append(item)
+
+    # Add no-status group at the end if it has entries
+    if no_status_group['entries']:
+        grouped_items.append(no_status_group)
+
     return render_template('index.html',
                          items=items,
+                         grouped_items=grouped_items,
                          tags=tags,
                          statuses=statuses,
                          current_status=status_filter,
@@ -87,18 +113,48 @@ def api_search():
         query = query.join(ReadingMaterial.tags).filter(Tag.name == tag_filter)
 
     items = query.order_by(ReadingMaterial.updated_at.desc()).all()
+    statuses = Status.query.order_by(Status.position).all()
 
-    return jsonify([{
-        'id': item.id,
-        'title': item.title,
-        'link': item.link,
-        'status_display': item.status_display,
-        'status_color': item.status_color,
-        'chapter_current': item.chapter_current,
-        'chapter_total': item.chapter_total,
-        'progress_percent': item.progress_percent,
-        'tags': [tag.name for tag in item.tags]
-    } for item in items])
+    # Group items by status
+    grouped = {}
+    for status in statuses:
+        grouped[status.id] = {
+            'status_id': status.id,
+            'status_name': status.display_name,
+            'status_color': status.color,
+            'items': []
+        }
+    grouped[0] = {
+        'status_id': 0,
+        'status_name': 'No Status',
+        'status_color': 'gray',
+        'items': []
+    }
+
+    for item in items:
+        key = item.status_id if item.status_id else 0
+        grouped[key]['items'].append({
+            'id': item.id,
+            'title': item.title,
+            'link': item.link,
+            'status_display': item.status_display,
+            'status_color': item.status_color,
+            'status_id': item.status_id,
+            'chapter_current': item.chapter_current,
+            'chapter_total': item.chapter_total,
+            'progress_percent': item.progress_percent,
+            'tags': [tag.name for tag in item.tags]
+        })
+
+    # Return only groups that have items, maintaining order
+    result = []
+    for status in statuses:
+        if grouped[status.id]['items']:
+            result.append(grouped[status.id])
+    if grouped[0]['items']:
+        result.append(grouped[0])
+
+    return jsonify(result)
 
 
 @app.route('/add', methods=['GET', 'POST'])
