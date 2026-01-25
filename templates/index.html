@@ -32,8 +32,9 @@
 <div class="status-groups" id="status-groups">
     {% for group in grouped_items %}
         {% if group.entries %}
-        <div class="status-group">
+        <div class="status-group" data-status-id="{{ group.status.id if group.status else 'none' }}" draggable="true">
             <div class="status-group-header">
+                <span class="drag-handle" title="Drag to reorder">&#9776;</span>
                 <h3>
                     {% if group.status %}
                         <span class="status-badge status-{{ group.status.color }}">{{ group.status.display_name }}</span>
@@ -42,8 +43,11 @@
                     {% endif %}
                     <span class="item-count">({{ group.entries|length }})</span>
                 </h3>
+                <button type="button" class="collapse-toggle" title="Collapse/Expand">
+                    <span class="collapse-icon">&#9660;</span>
+                </button>
             </div>
-            <div class="items-list">
+            <div class="items-list collapsible">
                 {% for item in group.entries %}
                 <div class="item-card">
                     <div class="item-header">
@@ -143,14 +147,18 @@ function renderGroupedItems(groups) {
     dynamicEmpty.style.display = 'none';
     dynamicGroups.style.display = 'block';
     dynamicGroups.innerHTML = groups.map(group => `
-        <div class="status-group">
+        <div class="status-group" data-status-id="${group.status_id}" draggable="true">
             <div class="status-group-header">
+                <span class="drag-handle" title="Drag to reorder">&#9776;</span>
                 <h3>
                     <span class="status-badge status-${group.status_color}">${escapeHtml(group.status_name)}</span>
                     <span class="item-count">(${group.items.length})</span>
                 </h3>
+                <button type="button" class="collapse-toggle" title="Collapse/Expand">
+                    <span class="collapse-icon">&#9660;</span>
+                </button>
             </div>
-            <div class="items-list">
+            <div class="items-list collapsible">
                 ${group.items.map(item => `
                     <div class="item-card">
                         <div class="item-header">
@@ -187,6 +195,10 @@ function renderGroupedItems(groups) {
             </div>
         </div>
     `).join('');
+
+    // Re-initialize collapse and drag after dynamic render
+    initCollapse();
+    initDragAndDrop();
 }
 
 function escapeHtml(text) {
@@ -227,5 +239,151 @@ function doSearch() {
 }
 
 searchInput.addEventListener('input', debounce(doSearch, 300));
+
+// Collapse functionality
+function initCollapse() {
+    document.querySelectorAll('.collapse-toggle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const group = this.closest('.status-group');
+            const content = group.querySelector('.collapsible');
+            const icon = this.querySelector('.collapse-icon');
+            const statusId = group.dataset.statusId;
+
+            group.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+
+            if (group.classList.contains('collapsed')) {
+                icon.innerHTML = '&#9654;'; // Right arrow
+                saveCollapsedState(statusId, true);
+            } else {
+                icon.innerHTML = '&#9660;'; // Down arrow
+                saveCollapsedState(statusId, false);
+            }
+        });
+    });
+
+    // Restore collapsed states from localStorage
+    restoreCollapsedStates();
+}
+
+function saveCollapsedState(statusId, isCollapsed) {
+    const states = JSON.parse(localStorage.getItem('collapsedGroups') || '{}');
+    states[statusId] = isCollapsed;
+    localStorage.setItem('collapsedGroups', JSON.stringify(states));
+}
+
+function restoreCollapsedStates() {
+    const states = JSON.parse(localStorage.getItem('collapsedGroups') || '{}');
+    document.querySelectorAll('.status-group').forEach(group => {
+        const statusId = group.dataset.statusId;
+        if (states[statusId]) {
+            group.classList.add('collapsed');
+            group.querySelector('.collapsible').classList.add('collapsed');
+            group.querySelector('.collapse-icon').innerHTML = '&#9654;';
+        }
+    });
+}
+
+// Drag and drop functionality
+let draggedElement = null;
+
+function initDragAndDrop() {
+    const container = document.querySelector('.status-groups:not([style*="display: none"])');
+    if (!container) return;
+
+    container.querySelectorAll('.status-group').forEach(group => {
+        group.addEventListener('dragstart', handleDragStart);
+        group.addEventListener('dragend', handleDragEnd);
+        group.addEventListener('dragover', handleDragOver);
+        group.addEventListener('drop', handleDrop);
+        group.addEventListener('dragenter', handleDragEnter);
+        group.addEventListener('dragleave', handleDragLeave);
+    });
+}
+
+function handleDragStart(e) {
+    draggedElement = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.innerHTML);
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.status-group').forEach(group => {
+        group.classList.remove('drag-over');
+    });
+    saveGroupOrder();
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDragEnter(e) {
+    if (this !== draggedElement) {
+        this.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+    e.stopPropagation();
+    e.preventDefault();
+
+    if (draggedElement !== this) {
+        const container = this.parentNode;
+        const allGroups = [...container.querySelectorAll('.status-group')];
+        const draggedIndex = allGroups.indexOf(draggedElement);
+        const targetIndex = allGroups.indexOf(this);
+
+        if (draggedIndex < targetIndex) {
+            container.insertBefore(draggedElement, this.nextSibling);
+        } else {
+            container.insertBefore(draggedElement, this);
+        }
+    }
+
+    this.classList.remove('drag-over');
+    return false;
+}
+
+function saveGroupOrder() {
+    const container = document.querySelector('.status-groups:not([style*="display: none"])');
+    if (!container) return;
+
+    const order = [...container.querySelectorAll('.status-group')].map(g => g.dataset.statusId);
+    localStorage.setItem('groupOrder', JSON.stringify(order));
+}
+
+function restoreGroupOrder() {
+    const order = JSON.parse(localStorage.getItem('groupOrder') || '[]');
+    if (order.length === 0) return;
+
+    const container = document.querySelector('.status-groups:not([style*="display: none"])');
+    if (!container) return;
+
+    const groups = [...container.querySelectorAll('.status-group')];
+    const groupMap = {};
+    groups.forEach(g => groupMap[g.dataset.statusId] = g);
+
+    order.forEach(statusId => {
+        if (groupMap[statusId]) {
+            container.appendChild(groupMap[statusId]);
+        }
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    initCollapse();
+    initDragAndDrop();
+    restoreGroupOrder();
+});
 </script>
 {% endblock %}
