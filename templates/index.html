@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="filters">
+    <form method="get" action="{{ url_for('index') }}">
+        <select name="status" onchange="this.form.submit()">
+            <option value="">All Statuses</option>
+            {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="tag" onchange="this.form.submit()">
+            <option value="">All Tags</option>
+            {% for tag in tags %}
+                <option value="{{ tag.name }}" {% if current_tag == tag.name %}selected{% endif %}>{{ tag.name }}</option>
+            {% endfor %}
+        </select>
+
+        {% if current_status or current_tag %}
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Clear Filters</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if items %}
+<div class="items-list">
+    {% for item in items %}
+    <div class="item-card">
+        <div class="item-header">
+            <h3>
+                <a href="{{ url_for('view', id=item.id) }}">{{ item.title }}</a>
+            </h3>
+            <span class="status-badge status-{{ item.status }}">{{ item.status_display }}</span>
+        </div>
+
+        {% if item.link %}
+        <p class="item-link"><a href="{{ item.link }}" target="_blank">{{ item.link[:50] }}{% if item.link|length > 50 %}...{% endif %}</a></p>
+        {% endif %}
+
+        <div class="item-progress">
+            <form method="post" action="{{ url_for('update_progress', id=item.id) }}" class="progress-form">
+                <label>Chapter:</label>
+                <input type="number" name="chapter_current" value="{{ item.chapter_current }}" min="0" class="chapter-input">
+                {% if item.chapter_total %}
+                    <span>/ {{ item.chapter_total }}</span>
+                {% endif %}
+                <button type="submit" class="btn btn-small">Update</button>
+            </form>
+            {% if item.progress_percent is not none %}
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ item.progress_percent }}%"></div>
+            </div>
+            <span class="progress-text">{{ item.progress_percent }}%</span>
+            {% endif %}
+        </div>
+
+        {% if item.tags %}
+        <div class="tags">
+            {% for tag in item.tags %}
+                <a href="{{ url_for('index', tag=tag.name) }}" class="tag">{{ tag.name }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="item-actions">
+            <a href="{{ url_for('edit', id=item.id) }}" class="btn btn-secondary">Edit</a>
+            <form method="post" action="{{ url_for('delete', id=item.id) }}" class="delete-form" onsubmit="return confirm('Delete this item?');">
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No reading materials found.</p>
+    <a href="{{ url_for('add') }}" class="btn btn-primary">Add Your First Item</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.title }} - Reading Tracker{% endblock %}
+
+{% block content %}
+<div class="view-container">
+    <div class="view-header">
+        <h2>{{ item.title }}</h2>
+        <span class="status-badge status-{{ item.status }}">{{ item.status_display }}</span>
+    </div>
+
+    {% if item.link %}
+    <p class="view-link">
+        <strong>Link:</strong>
+        <a href="{{ item.link }}" target="_blank">{{ item.link }}</a>
+    </p>
+    {% endif %}
+
+    <div class="view-progress">
+        <strong>Progress:</strong>
+        Chapter {{ item.chapter_current }}{% if item.chapter_total %} / {{ item.chapter_total }}{% endif %}
+        {% if item.progress_percent is not none %}
+            ({{ item.progress_percent }}%)
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ item.progress_percent }}%"></div>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if item.tags %}
+    <div class="view-tags">
+        <strong>Tags:</strong>
+        {% for tag in item.tags %}
+            <span class="tag">{{ tag.name }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if item.notes %}
+    <div class="view-notes">
+        <strong>Notes:</strong>
+        <p>{{ item.notes }}</p>
+    </div>
+    {% endif %}
+
+    <div class="view-meta">
+        <p><strong>Created:</strong> {{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p><strong>Updated:</strong> {{ item.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    </div>
+
+    <div class="view-actions">
+        <a href="{{ url_for('edit', id=item.id) }}" class="btn btn-primary">Edit</a>
+        <form method="post" action="{{ url_for('delete', id=item.id) }}" class="delete-form" onsubmit="return confirm('Delete this item?');">
+            <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to List</a>
+    </div>
+</div>
+{% endblock %}
