@@ -3,23 +3,30 @@
 {% block content %}
 <div class="filters">
     <form method="get" action="{{ url_for('index') }}">
-        <select name="status" onchange="this.form.submit()">
-            <option value="">All Statuses</option>
-            {% for status in statuses %}
-                <option value="{{ status.id }}" {% if current_status == status.id|string %}selected{% endif %}>{{ status.display_name }}</option>
-            {% endfor %}
-        </select>
+        <div class="search-box">
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Search titles and notes...">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </div>
 
-        <select name="tag" onchange="this.form.submit()">
-            <option value="">All Tags</option>
-            {% for tag in tags %}
-                <option value="{{ tag.name }}" {% if current_tag == tag.name %}selected{% endif %}>{{ tag.name }}</option>
-            {% endfor %}
-        </select>
+        <div class="filter-row">
+            <select name="status" onchange="this.form.submit()">
+                <option value="">All Statuses</option>
+                {% for status in statuses %}
+                    <option value="{{ status.id }}" {% if current_status == status.id|string %}selected{% endif %}>{{ status.display_name }}</option>
+                {% endfor %}
+            </select>
 
-        {% if current_status or current_tag %}
-            <a href="{{ url_for('index') }}" class="btn btn-secondary">Clear Filters</a>
-        {% endif %}
+            <select name="tag" onchange="this.form.submit()">
+                <option value="">All Tags</option>
+                {% for tag in tags %}
+                    <option value="{{ tag.name }}" {% if current_tag == tag.name %}selected{% endif %}>{{ tag.name }}</option>
+                {% endfor %}
+            </select>
+
+            {% if current_status or current_tag or search_query %}
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">Clear</a>
+            {% endif %}
+        </div>
     </form>
 </div>
 

@@ -29,10 +29,20 @@ with app.app_context():
 
 @app.route('/')
 def index():
+    search_query = request.args.get('q', '').strip()
     status_filter = request.args.get('status', '')
     tag_filter = request.args.get('tag', '')
 
     query = ReadingMaterial.query
+
+    if search_query:
+        search_term = f'%{search_query}%'
+        query = query.filter(
+            db.or_(
+                ReadingMaterial.title.ilike(search_term),
+                ReadingMaterial.notes.ilike(search_term)
+            )
+        )
 
     if status_filter:
         query = query.filter(ReadingMaterial.status_id == int(status_filter))
@@ -49,7 +59,8 @@ def index():
                          tags=tags,
                          statuses=statuses,
                          current_status=status_filter,
-                         current_tag=tag_filter)
+                         current_tag=tag_filter,
+                         search_query=search_query)
 
 
 @app.route('/add', methods=['GET', 'POST'])
