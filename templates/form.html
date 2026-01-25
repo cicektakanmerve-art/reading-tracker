@@ -40,8 +40,25 @@
         </div>
 
         <div class="form-group">
-            <label for="tags">Tags (comma-separated)</label>
-            <input type="text" id="tags" name="tags" value="{{ item.tags|map(attribute='name')|join(', ') if item else '' }}" placeholder="fiction, sci-fi, favorite">
+            <label>Tags</label>
+            <div class="tag-input-container">
+                <div class="selected-tags" id="selected-tags">
+                    {% if item %}
+                        {% for tag in item.tags %}
+                            <span class="tag-chip" data-tag="{{ tag.name }}">
+                                {{ tag.name }}
+                                <button type="button" class="tag-remove" onclick="removeTag('{{ tag.name }}')">&times;</button>
+                            </span>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                <div class="tag-input-wrapper">
+                    <input type="text" id="tag-input" placeholder="Type to search or add tags..." autocomplete="off">
+                    <div class="tag-suggestions" id="tag-suggestions"></div>
+                </div>
+            </div>
+            <input type="hidden" id="tags" name="tags" value="{{ item.tags|map(attribute='name')|join(', ') if item else '' }}">
+            <small>Type to search existing tags or enter a new tag name and press Enter</small>
         </div>
 
         <div class="form-group">
@@ -55,4 +72,118 @@
         </div>
     </form>
 </div>
+
+<script>
+let selectedTags = new Set([{% for tag in item.tags %}'{{ tag.name }}'{% if not loop.last %}, {% endif %}{% endfor %}] || []);
+const tagInput = document.getElementById('tag-input');
+const tagSuggestions = document.getElementById('tag-suggestions');
+const selectedTagsContainer = document.getElementById('selected-tags');
+const hiddenTagsInput = document.getElementById('tags');
+let searchTimeout;
+
+function updateHiddenInput() {
+    hiddenTagsInput.value = Array.from(selectedTags).join(', ');
+}
+
+function addTag(tagName) {
+    tagName = tagName.trim().toLowerCase();
+    if (!tagName || selectedTags.has(tagName)) return;
+
+    selectedTags.add(tagName);
+
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.dataset.tag = tagName;
+    chip.innerHTML = `${escapeHtml(tagName)} <button type="button" class="tag-remove" onclick="removeTag('${escapeHtml(tagName)}')">&times;</button>`;
+    selectedTagsContainer.appendChild(chip);
+
+    updateHiddenInput();
+    tagInput.value = '';
+    tagSuggestions.style.display = 'none';
+}
+
+function removeTag(tagName) {
+    selectedTags.delete(tagName);
+    const chip = selectedTagsContainer.querySelector(`[data-tag="${tagName}"]`);
+    if (chip) chip.remove();
+    updateHiddenInput();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showSuggestions(tags) {
+    if (tags.length === 0) {
+        tagSuggestions.style.display = 'none';
+        return;
+    }
+
+    tagSuggestions.innerHTML = tags
+        .filter(tag => !selectedTags.has(tag.name))
+        .map(tag => `<div class="tag-suggestion" onclick="addTag('${escapeHtml(tag.name)}')">${escapeHtml(tag.name)}</div>`)
+        .join('');
+
+    tagSuggestions.style.display = tagSuggestions.children.length > 0 ? 'block' : 'none';
+}
+
+function searchTags(query) {
+    fetch(`/api/tags?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(tags => showSuggestions(tags))
+        .catch(err => console.error('Error fetching tags:', err));
+}
+
+tagInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const query = this.value.trim();
+
+    if (query.length === 0) {
+        // Show all tags when input is empty but focused
+        searchTags('');
+    } else {
+        searchTimeout = setTimeout(() => searchTags(query), 200);
+    }
+});
+
+tagInput.addEventListener('focus', function() {
+    if (this.value.trim() === '') {
+        searchTags('');
+    }
+});
+
+tagInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = this.value.trim();
+        if (value) {
+            // Create new tag via API and add it
+            fetch('/api/tags/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: value})
+            })
+            .then(response => response.json())
+            .then(tag => {
+                addTag(tag.name);
+            })
+            .catch(err => {
+                console.error('Error creating tag:', err);
+                addTag(value); // Fallback: add locally anyway
+            });
+        }
+    } else if (e.key === 'Escape') {
+        tagSuggestions.style.display = 'none';
+    }
+});
+
+// Hide suggestions when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.tag-input-wrapper')) {
+        tagSuggestions.style.display = 'none';
+    }
+});
+</script>
 {% endblock %}

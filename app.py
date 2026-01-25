@@ -278,5 +278,106 @@ def delete_status(id):
     return redirect(url_for('statuses'))
 
 
+# Tag management routes
+@app.route('/tags')
+def tags():
+    all_tags = Tag.query.order_by(Tag.name).all()
+    # Get usage count for each tag
+    tag_data = []
+    for tag in all_tags:
+        count = tag.reading_materials.count()
+        tag_data.append({'tag': tag, 'count': count})
+    return render_template('tags.html', tags=tag_data)
+
+
+@app.route('/tags/add', methods=['GET', 'POST'])
+def add_tag():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip().lower()
+
+        if not name:
+            flash('Tag name is required', 'error')
+            return redirect(url_for('add_tag'))
+
+        if Tag.query.filter_by(name=name).first():
+            flash('A tag with this name already exists', 'error')
+            return redirect(url_for('add_tag'))
+
+        tag = Tag(name=name)
+        db.session.add(tag)
+        db.session.commit()
+        flash('Tag added successfully', 'success')
+        return redirect(url_for('tags'))
+
+    return render_template('tag_form.html', tag=None)
+
+
+@app.route('/tags/edit/<int:id>', methods=['GET', 'POST'])
+def edit_tag(id):
+    tag = Tag.query.get_or_404(id)
+
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip().lower()
+
+        if not name:
+            flash('Tag name is required', 'error')
+            return redirect(url_for('edit_tag', id=id))
+
+        existing = Tag.query.filter_by(name=name).first()
+        if existing and existing.id != tag.id:
+            flash('A tag with this name already exists', 'error')
+            return redirect(url_for('edit_tag', id=id))
+
+        tag.name = name
+        db.session.commit()
+        flash('Tag updated successfully', 'success')
+        return redirect(url_for('tags'))
+
+    return render_template('tag_form.html', tag=tag)
+
+
+@app.route('/tags/delete/<int:id>', methods=['POST'])
+def delete_tag(id):
+    tag = Tag.query.get_or_404(id)
+
+    # Check if any reading materials use this tag
+    if tag.reading_materials.count() > 0:
+        flash('Cannot delete tag that is in use', 'error')
+        return redirect(url_for('tags'))
+
+    db.session.delete(tag)
+    db.session.commit()
+    flash('Tag deleted', 'success')
+    return redirect(url_for('tags'))
+
+
+@app.route('/api/tags')
+def api_tags():
+    query = request.args.get('q', '').strip().lower()
+    if query:
+        tags = Tag.query.filter(Tag.name.ilike(f'%{query}%')).order_by(Tag.name).all()
+    else:
+        tags = Tag.query.order_by(Tag.name).all()
+    return jsonify([{'id': tag.id, 'name': tag.name} for tag in tags])
+
+
+@app.route('/api/tags/create', methods=['POST'])
+def api_create_tag():
+    data = request.get_json()
+    name = data.get('name', '').strip().lower()
+
+    if not name:
+        return jsonify({'error': 'Tag name is required'}), 400
+
+    existing = Tag.query.filter_by(name=name).first()
+    if existing:
+        return jsonify({'id': existing.id, 'name': existing.name})
+
+    tag = Tag(name=name)
+    db.session.add(tag)
+    db.session.commit()
+    return jsonify({'id': tag.id, 'name': tag.name})
+
+
 if __name__ == '__main__':
     app.run(debug=True)

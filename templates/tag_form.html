@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if tag else 'Add' }} Tag - Reading Tracker{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2>{{ 'Edit' if tag else 'Add New' }} Tag</h2>
+
+    <form method="post">
+        <div class="form-group">
+            <label for="name">Tag Name *</label>
+            <input type="text" id="name" name="name" value="{{ tag.name if tag else '' }}" required placeholder="e.g., fiction, sci-fi, favorite">
+            <small>Lowercase, will be normalized automatically.</small>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{ 'Update' if tag else 'Add' }}</button>
+            <a href="{{ url_for('tags') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

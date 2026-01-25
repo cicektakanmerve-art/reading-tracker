@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Tags - Reading Tracker{% endblock %}
+
+{% block content %}
+<div class="tags-container">
+    <div class="tags-header">
+        <h2>Manage Tags</h2>
+        <a href="{{ url_for('add_tag') }}" class="btn btn-primary">+ Add Tag</a>
+    </div>
+
+    {% if tags %}
+    <div class="tags-list">
+        {% for item in tags %}
+        <div class="tag-card">
+            <div class="tag-info">
+                <span class="tag">{{ item.tag.name }}</span>
+                <span class="tag-count">{{ item.count }} item{% if item.count != 1 %}s{% endif %}</span>
+            </div>
+            <div class="tag-actions">
+                <a href="{{ url_for('edit_tag', id=item.tag.id) }}" class="btn btn-secondary btn-small">Edit</a>
+                <form method="post" action="{{ url_for('delete_tag', id=item.tag.id) }}" class="delete-form" onsubmit="return confirm('Delete this tag?');">
+                    <button type="submit" class="btn btn-danger btn-small">Delete</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No tags defined.</p>
+        <a href="{{ url_for('add_tag') }}" class="btn btn-primary">Add Your First Tag</a>
+    </div>
+    {% endif %}
+
+    <div class="back-link">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Reading List</a>
+    </div>
+</div>
+{% endblock %}
