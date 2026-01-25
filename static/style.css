@@ -128,6 +128,7 @@ footer {
 .search-box {
     display: flex;
     gap: 0.5rem;
+    align-items: center;
 }
 
 .search-box input {
@@ -135,6 +136,11 @@ footer {
     padding: 0.5rem;
     border: 1px solid #ddd;
     border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.loading-indicator {
+    color: #666;
     font-size: 0.9rem;
 }
 

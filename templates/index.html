@@ -2,36 +2,34 @@
 
 {% block content %}
 <div class="filters">
-    <form method="get" action="{{ url_for('index') }}">
+    <form method="get" action="{{ url_for('index') }}" id="filter-form">
         <div class="search-box">
-            <input type="text" name="q" value="{{ search_query }}" placeholder="Search titles and notes...">
-            <button type="submit" class="btn btn-primary">Search</button>
+            <input type="text" name="q" id="search-input" value="{{ search_query }}" placeholder="Search titles and notes..." autocomplete="off">
+            <span id="search-loading" class="loading-indicator" style="display: none;">...</span>
         </div>
 
         <div class="filter-row">
-            <select name="status" onchange="this.form.submit()">
+            <select name="status" id="status-filter" onchange="doSearch()">
                 <option value="">All Statuses</option>
                 {% for status in statuses %}
                     <option value="{{ status.id }}" {% if current_status == status.id|string %}selected{% endif %}>{{ status.display_name }}</option>
                 {% endfor %}
             </select>
 
-            <select name="tag" onchange="this.form.submit()">
+            <select name="tag" id="tag-filter" onchange="doSearch()">
                 <option value="">All Tags</option>
                 {% for tag in tags %}
                     <option value="{{ tag.name }}" {% if current_tag == tag.name %}selected{% endif %}>{{ tag.name }}</option>
                 {% endfor %}
             </select>
 
-            {% if current_status or current_tag or search_query %}
-                <a href="{{ url_for('index') }}" class="btn btn-secondary">Clear</a>
-            {% endif %}
+            <a href="{{ url_for('index') }}" class="btn btn-secondary" id="clear-btn" {% if not current_status and not current_tag and not search_query %}style="display: none;"{% endif %}>Clear</a>
         </div>
     </form>
 </div>
 
 {% if items %}
-<div class="items-list">
+<div class="items-list" id="items-list">
     {% for item in items %}
     <div class="item-card">
         <div class="item-header">
@@ -80,9 +78,124 @@
     {% endfor %}
 </div>
 {% else %}
-<div class="empty-state">
+<div class="empty-state" id="empty-state">
     <p>No reading materials found.</p>
     <a href="{{ url_for('add') }}" class="btn btn-primary">Add Your First Item</a>
 </div>
 {% endif %}
+
+<div class="items-list" id="items-list-dynamic" style="display: none;"></div>
+<div class="empty-state" id="empty-state-dynamic" style="display: none;">
+    <p>No reading materials found.</p>
+    <a href="{{ url_for('add') }}" class="btn btn-primary">Add Your First Item</a>
+</div>
+
+<script>
+let searchTimeout;
+const searchInput = document.getElementById('search-input');
+const statusFilter = document.getElementById('status-filter');
+const tagFilter = document.getElementById('tag-filter');
+const clearBtn = document.getElementById('clear-btn');
+const loadingIndicator = document.getElementById('search-loading');
+
+function debounce(func, wait) {
+    return function(...args) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+function renderItems(items) {
+    const staticList = document.getElementById('items-list');
+    const staticEmpty = document.getElementById('empty-state');
+    const dynamicList = document.getElementById('items-list-dynamic');
+    const dynamicEmpty = document.getElementById('empty-state-dynamic');
+
+    // Hide static content
+    if (staticList) staticList.style.display = 'none';
+    if (staticEmpty) staticEmpty.style.display = 'none';
+
+    if (items.length === 0) {
+        dynamicList.style.display = 'none';
+        dynamicEmpty.style.display = 'block';
+        return;
+    }
+
+    dynamicEmpty.style.display = 'none';
+    dynamicList.style.display = 'grid';
+    dynamicList.innerHTML = items.map(item => `
+        <div class="item-card">
+            <div class="item-header">
+                <h3><a href="/view/${item.id}">${escapeHtml(item.title)}</a></h3>
+                <span class="status-badge status-${item.status_color}">${escapeHtml(item.status_display)}</span>
+            </div>
+            ${item.link ? `<p class="item-link"><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.link.substring(0, 50))}${item.link.length > 50 ? '...' : ''}</a></p>` : ''}
+            <div class="item-progress">
+                <form method="post" action="/update-progress/${item.id}" class="progress-form">
+                    <label>Chapter:</label>
+                    <input type="number" name="chapter_current" value="${item.chapter_current}" min="0" class="chapter-input">
+                    ${item.chapter_total ? `<span>/ ${item.chapter_total}</span>` : ''}
+                    <button type="submit" class="btn btn-small">Update</button>
+                </form>
+                ${item.progress_percent !== null ? `
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${item.progress_percent}%"></div>
+                    </div>
+                    <span class="progress-text">${item.progress_percent}%</span>
+                ` : ''}
+            </div>
+            ${item.tags.length > 0 ? `
+                <div class="tags">
+                    ${item.tags.map(tag => `<a href="/?tag=${encodeURIComponent(tag)}" class="tag">${escapeHtml(tag)}</a>`).join('')}
+                </div>
+            ` : ''}
+            <div class="item-actions">
+                <a href="/edit/${item.id}" class="btn btn-secondary">Edit</a>
+                <form method="post" action="/delete/${item.id}" class="delete-form" onsubmit="return confirm('Delete this item?');">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    `).join('');
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function doSearch() {
+    const query = searchInput.value;
+    const status = statusFilter.value;
+    const tag = tagFilter.value;
+
+    // Show/hide clear button
+    clearBtn.style.display = (query || status || tag) ? 'inline-block' : 'none';
+
+    // Update URL without reload
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (status) params.set('status', status);
+    if (tag) params.set('tag', tag);
+    const newUrl = params.toString() ? `/?${params.toString()}` : '/';
+    history.replaceState(null, '', newUrl);
+
+    loadingIndicator.style.display = 'inline';
+
+    fetch(`/api/search?${params.toString()}`)
+        .then(response => response.json())
+        .then(items => {
+            loadingIndicator.style.display = 'none';
+            renderItems(items);
+        })
+        .catch(err => {
+            loadingIndicator.style.display = 'none';
+            console.error('Search error:', err);
+        });
+}
+
+searchInput.addEventListener('input', debounce(doSearch, 300));
+</script>
 {% endblock %}
