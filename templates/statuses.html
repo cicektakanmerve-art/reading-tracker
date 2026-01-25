@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Statuses - Reading Tracker{% endblock %}
+
+{% block content %}
+<div class="statuses-container">
+    <div class="statuses-header">
+        <h2>Manage Statuses</h2>
+        <a href="{{ url_for('add_status') }}" class="btn btn-primary">+ Add Status</a>
+    </div>
+
+    {% if statuses %}
+    <div class="statuses-list">
+        {% for status in statuses %}
+        <div class="status-card">
+            <div class="status-info">
+                <span class="status-badge status-{{ status.color }}">{{ status.display_name }}</span>
+                <span class="status-name">{{ status.name }}</span>
+            </div>
+            <div class="status-actions">
+                <a href="{{ url_for('edit_status', id=status.id) }}" class="btn btn-secondary btn-small">Edit</a>
+                <form method="post" action="{{ url_for('delete_status', id=status.id) }}" class="delete-form" onsubmit="return confirm('Delete this status?');">
+                    <button type="submit" class="btn btn-danger btn-small">Delete</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No statuses defined.</p>
+        <a href="{{ url_for('add_status') }}" class="btn btn-primary">Add Your First Status</a>
+    </div>
+    {% endif %}
+
+    <div class="back-link">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Reading List</a>
+    </div>
+</div>
+{% endblock %}

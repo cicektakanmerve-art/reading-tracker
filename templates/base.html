@@ -10,7 +10,10 @@
     <header>
         <nav>
             <a href="{{ url_for('index') }}" class="logo">Reading Tracker</a>
-            <a href="{{ url_for('add') }}" class="btn btn-primary">+ Add New</a>
+            <div class="nav-links">
+                <a href="{{ url_for('statuses') }}" class="btn btn-secondary">Manage Statuses</a>
+                <a href="{{ url_for('add') }}" class="btn btn-primary">+ Add New</a>
+            </div>
         </nav>
     </header>
 

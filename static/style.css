@@ -34,6 +34,11 @@ nav {
     font-weight: bold;
 }
 
+.nav-links {
+    display: flex;
+    gap: 0.5rem;
+}
+
 main {
     flex: 1;
     max-width: 1200px;
@@ -176,29 +181,44 @@ footer {
     white-space: nowrap;
 }
 
-.status-to_read {
+.status-blue {
     background: #e8f4fd;
     color: #1976d2;
 }
 
-.status-reading {
+.status-orange {
     background: #fff3e0;
     color: #f57c00;
 }
 
-.status-completed {
+.status-green {
     background: #e8f5e9;
     color: #388e3c;
 }
 
-.status-on_hold {
+.status-pink {
     background: #fce4ec;
     color: #c2185b;
 }
 
-.status-dropped {
+.status-gray {
     background: #eceff1;
     color: #546e7a;
+}
+
+.status-purple {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.status-red {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.status-yellow {
+    background: #fffde7;
+    color: #f9a825;
 }
 
 /* Progress */
@@ -386,6 +406,64 @@ footer {
     border-top: 1px solid #eee;
 }
 
+/* Status management */
+.statuses-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.statuses-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.statuses-list {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.status-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.status-name {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.status-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.back-link {
+    margin-top: 2rem;
+}
+
+.color-preview {
+    margin-top: 0.5rem;
+}
+
+.form-group small {
+    display: block;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     main {
@@ -402,5 +480,16 @@ footer {
 
     .view-header {
         flex-direction: column;
+    }
+
+    .nav-links {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .status-card {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
     }
 }

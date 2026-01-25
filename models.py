@@ -11,11 +11,24 @@ reading_material_tags = db.Table(
 )
 
 
+class Status(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    display_name = db.Column(db.String(50), nullable=False)
+    color = db.Column(db.String(20), default='gray')  # CSS color class
+    position = db.Column(db.Integer, default=0)  # For ordering
+
+    reading_materials = db.relationship('ReadingMaterial', backref='status_obj', lazy='dynamic')
+
+    def __repr__(self):
+        return self.display_name
+
+
 class ReadingMaterial(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
     link = db.Column(db.String(500), nullable=True)
-    status = db.Column(db.String(20), default='to_read')  # to_read, reading, completed, on_hold, dropped
+    status_id = db.Column(db.Integer, db.ForeignKey('status.id'), nullable=True)
     chapter_current = db.Column(db.Integer, default=0)
     chapter_total = db.Column(db.Integer, nullable=True)
     notes = db.Column(db.Text, nullable=True)
@@ -24,17 +37,13 @@ class ReadingMaterial(db.Model):
 
     tags = db.relationship('Tag', secondary=reading_material_tags, backref=db.backref('reading_materials', lazy='dynamic'))
 
-    STATUS_CHOICES = [
-        ('to_read', 'To Read'),
-        ('reading', 'Reading'),
-        ('completed', 'Completed'),
-        ('on_hold', 'On Hold'),
-        ('dropped', 'Dropped')
-    ]
-
     @property
     def status_display(self):
-        return dict(self.STATUS_CHOICES).get(self.status, self.status)
+        return self.status_obj.display_name if self.status_obj else 'No Status'
+
+    @property
+    def status_color(self):
+        return self.status_obj.color if self.status_obj else 'gray'
 
     @property
     def progress_percent(self):

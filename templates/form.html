@@ -18,10 +18,11 @@
         </div>
 
         <div class="form-group">
-            <label for="status">Status</label>
-            <select id="status" name="status">
-                {% for value, label in status_choices %}
-                    <option value="{{ value }}" {% if item and item.status == value %}selected{% endif %}>{{ label }}</option>
+            <label for="status_id">Status</label>
+            <select id="status_id" name="status_id">
+                <option value="">-- Select Status --</option>
+                {% for status in statuses %}
+                    <option value="{{ status.id }}" {% if item and item.status_id == status.id %}selected{% endif %}>{{ status.display_name }}</option>
                 {% endfor %}
             </select>
         </div>

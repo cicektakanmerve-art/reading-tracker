@@ -5,8 +5,8 @@
     <form method="get" action="{{ url_for('index') }}">
         <select name="status" onchange="this.form.submit()">
             <option value="">All Statuses</option>
-            {% for value, label in status_choices %}
-                <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+            {% for status in statuses %}
+                <option value="{{ status.id }}" {% if current_status == status.id|string %}selected{% endif %}>{{ status.display_name }}</option>
             {% endfor %}
         </select>
 
@@ -31,7 +31,7 @@
             <h3>
                 <a href="{{ url_for('view', id=item.id) }}">{{ item.title }}</a>
             </h3>
-            <span class="status-badge status-{{ item.status }}">{{ item.status_display }}</span>
+            <span class="status-badge status-{{ item.status_color }}">{{ item.status_display }}</span>
         </div>
 
         {% if item.link %}

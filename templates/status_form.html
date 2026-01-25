@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if status else 'Add' }} Status - Reading Tracker{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2>{{ 'Edit' if status else 'Add New' }} Status</h2>
+
+    <form method="post">
+        {% if not status %}
+        <div class="form-group">
+            <label for="name">Name (internal identifier) *</label>
+            <input type="text" id="name" name="name" required placeholder="e.g., want_to_read">
+            <small>Lowercase, no spaces (use underscores). Cannot be changed later.</small>
+        </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label for="display_name">Display Name *</label>
+            <input type="text" id="display_name" name="display_name" value="{{ status.display_name if status else '' }}" required placeholder="e.g., Want to Read">
+        </div>
+
+        <div class="form-group">
+            <label for="color">Color</label>
+            <select id="color" name="color">
+                {% set colors = [('blue', 'Blue'), ('green', 'Green'), ('orange', 'Orange'), ('pink', 'Pink'), ('gray', 'Gray'), ('purple', 'Purple'), ('red', 'Red'), ('yellow', 'Yellow')] %}
+                {% for value, label in colors %}
+                    <option value="{{ value }}" {% if status and status.color == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <div class="color-preview">
+                Preview: <span class="status-badge status-blue" id="color-preview">Sample</span>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{ 'Update' if status else 'Add' }}</button>
+            <a href="{{ url_for('statuses') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('color').addEventListener('change', function() {
+    var preview = document.getElementById('color-preview');
+    preview.className = 'status-badge status-' + this.value;
+});
+</script>
+{% endblock %}
