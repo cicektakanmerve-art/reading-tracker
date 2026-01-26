@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
-from models import db, ReadingMaterial, Tag, Status
+from models import db, ReadingMaterial, Tag, Status, Note
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'dev-secret-key'
@@ -31,7 +31,7 @@ with app.app_context():
 def index():
     search_query = request.args.get('q', '').strip()
     status_filter = request.args.get('status', '')
-    tag_filter = request.args.get('tag', '')
+    tag_filters = request.args.getlist('tags')  # Multiple tags support
 
     query = ReadingMaterial.query
 
@@ -47,8 +47,12 @@ def index():
     if status_filter:
         query = query.filter(ReadingMaterial.status_id == int(status_filter))
 
-    if tag_filter:
-        query = query.join(ReadingMaterial.tags).filter(Tag.name == tag_filter)
+    if tag_filters:
+        # Filter items that have ALL selected tags
+        for tag_name in tag_filters:
+            query = query.filter(
+                ReadingMaterial.tags.any(Tag.name == tag_name)
+            )
 
     items = query.order_by(ReadingMaterial.updated_at.desc()).all()
     tags = Tag.query.order_by(Tag.name).all()
@@ -85,7 +89,7 @@ def index():
                          tags=tags,
                          statuses=statuses,
                          current_status=status_filter,
-                         current_tag=tag_filter,
+                         current_tags=tag_filters,
                          search_query=search_query)
 
 
@@ -93,7 +97,7 @@ def index():
 def api_search():
     search_query = request.args.get('q', '').strip()
     status_filter = request.args.get('status', '')
-    tag_filter = request.args.get('tag', '')
+    tag_filters = request.args.getlist('tags')  # Multiple tags support
 
     query = ReadingMaterial.query
 
@@ -109,8 +113,12 @@ def api_search():
     if status_filter:
         query = query.filter(ReadingMaterial.status_id == int(status_filter))
 
-    if tag_filter:
-        query = query.join(ReadingMaterial.tags).filter(Tag.name == tag_filter)
+    if tag_filters:
+        # Filter items that have ALL selected tags
+        for tag_name in tag_filters:
+            query = query.filter(
+                ReadingMaterial.tags.any(Tag.name == tag_name)
+            )
 
     items = query.order_by(ReadingMaterial.updated_at.desc()).all()
     statuses = Status.query.order_by(Status.position).all()
@@ -143,7 +151,7 @@ def api_search():
             'chapter_current': item.chapter_current,
             'chapter_total': item.chapter_total,
             'progress_percent': item.progress_percent,
-            'tags': [tag.name for tag in item.tags]
+            'tags': [{'id': tag.id, 'name': tag.name, 'color': tag.color or 'gray'} for tag in item.tags]
         })
 
     # Return only groups that have items, maintaining order
@@ -181,11 +189,12 @@ def add():
         tag_names = request.form.get('tags', '').strip()
         if tag_names:
             for tag_name in tag_names.split(','):
-                tag_name = tag_name.strip().lower()
+                tag_name = tag_name.strip()
                 if tag_name:
-                    tag = Tag.query.filter_by(name=tag_name).first()
+                    # Case-insensitive search for existing tag
+                    tag = Tag.query.filter(Tag.name.ilike(tag_name)).first()
                     if not tag:
-                        tag = Tag(name=tag_name)
+                        tag = Tag(name=tag_name, color=Tag.random_color())
                         db.session.add(tag)
                     item.tags.append(tag)
 
@@ -223,11 +232,12 @@ def edit(id):
         tag_names = request.form.get('tags', '').strip()
         if tag_names:
             for tag_name in tag_names.split(','):
-                tag_name = tag_name.strip().lower()
+                tag_name = tag_name.strip()
                 if tag_name:
-                    tag = Tag.query.filter_by(name=tag_name).first()
+                    # Case-insensitive search for existing tag
+                    tag = Tag.query.filter(Tag.name.ilike(tag_name)).first()
                     if not tag:
-                        tag = Tag(name=tag_name)
+                        tag = Tag(name=tag_name, color=Tag.random_color())
                         db.session.add(tag)
                     item.tags.append(tag)
 
@@ -243,7 +253,50 @@ def edit(id):
 @app.route('/view/<int:id>')
 def view(id):
     item = ReadingMaterial.query.get_or_404(id)
-    return render_template('view.html', item=item)
+    notes = item.note_entries.order_by(Note.created_at.desc()).all()
+    statuses = Status.query.order_by(Status.position).all()
+    return render_template('view.html', item=item, notes=notes, statuses=statuses)
+
+
+@app.route('/view/<int:id>/add-note', methods=['POST'])
+def add_note(id):
+    item = ReadingMaterial.query.get_or_404(id)
+    content = request.form.get('content', '').strip()
+
+    if not content:
+        flash('Note content is required', 'error')
+        return redirect(url_for('view', id=id))
+
+    note = Note(content=content, reading_material_id=item.id)
+    db.session.add(note)
+    db.session.commit()
+    flash('Note added', 'success')
+    return redirect(url_for('view', id=id))
+
+
+@app.route('/note/<int:id>/delete', methods=['POST'])
+def delete_note(id):
+    note = Note.query.get_or_404(id)
+    reading_material_id = note.reading_material_id
+    db.session.delete(note)
+    db.session.commit()
+    flash('Note deleted', 'success')
+    return redirect(url_for('view', id=reading_material_id))
+
+
+@app.route('/note/<int:id>/edit', methods=['POST'])
+def edit_note(id):
+    note = Note.query.get_or_404(id)
+    content = request.form.get('content', '').strip()
+
+    if not content:
+        flash('Note content is required', 'error')
+    else:
+        note.content = content
+        db.session.commit()
+        flash('Note updated', 'success')
+
+    return redirect(url_for('view', id=note.reading_material_id))
 
 
 @app.route('/delete/<int:id>', methods=['POST'])
@@ -349,23 +402,26 @@ def tags():
 @app.route('/tags/add', methods=['GET', 'POST'])
 def add_tag():
     if request.method == 'POST':
-        name = request.form.get('name', '').strip().lower()
+        name = request.form.get('name', '').strip()
+        color = request.form.get('color') or Tag.random_color()
 
         if not name:
             flash('Tag name is required', 'error')
             return redirect(url_for('add_tag'))
 
-        if Tag.query.filter_by(name=name).first():
+        # Case-insensitive check for existing tag
+        if Tag.query.filter(Tag.name.ilike(name)).first():
             flash('A tag with this name already exists', 'error')
             return redirect(url_for('add_tag'))
 
-        tag = Tag(name=name)
+        tag = Tag(name=name, color=color)
         db.session.add(tag)
         db.session.commit()
         flash('Tag added successfully', 'success')
         return redirect(url_for('tags'))
 
-    return render_template('tag_form.html', tag=None)
+    # Pass a random color for the preview default
+    return render_template('tag_form.html', tag=None, default_color=Tag.random_color())
 
 
 @app.route('/tags/edit/<int:id>', methods=['GET', 'POST'])
@@ -373,18 +429,21 @@ def edit_tag(id):
     tag = Tag.query.get_or_404(id)
 
     if request.method == 'POST':
-        name = request.form.get('name', '').strip().lower()
+        name = request.form.get('name', '').strip()
+        color = request.form.get('color', 'gray')
 
         if not name:
             flash('Tag name is required', 'error')
             return redirect(url_for('edit_tag', id=id))
 
-        existing = Tag.query.filter_by(name=name).first()
+        # Case-insensitive check for existing tag
+        existing = Tag.query.filter(Tag.name.ilike(name)).first()
         if existing and existing.id != tag.id:
             flash('A tag with this name already exists', 'error')
             return redirect(url_for('edit_tag', id=id))
 
         tag.name = name
+        tag.color = color
         db.session.commit()
         flash('Tag updated successfully', 'success')
         return redirect(url_for('tags'))
@@ -409,30 +468,102 @@ def delete_tag(id):
 
 @app.route('/api/tags')
 def api_tags():
-    query = request.args.get('q', '').strip().lower()
+    query = request.args.get('q', '').strip()
     if query:
         tags = Tag.query.filter(Tag.name.ilike(f'%{query}%')).order_by(Tag.name).all()
     else:
         tags = Tag.query.order_by(Tag.name).all()
-    return jsonify([{'id': tag.id, 'name': tag.name} for tag in tags])
+    return jsonify([{'id': tag.id, 'name': tag.name, 'color': tag.color or 'gray'} for tag in tags])
+
+
+@app.route('/api/tags/<int:id>/color', methods=['POST'])
+def api_update_tag_color(id):
+    tag = Tag.query.get_or_404(id)
+    data = request.get_json()
+    color = data.get('color', 'gray')
+
+    if color in Tag.TAG_COLORS:
+        tag.color = color
+        db.session.commit()
+        return jsonify({'id': tag.id, 'name': tag.name, 'color': tag.color})
+
+    return jsonify({'error': 'Invalid color'}), 400
 
 
 @app.route('/api/tags/create', methods=['POST'])
 def api_create_tag():
     data = request.get_json()
-    name = data.get('name', '').strip().lower()
+    name = data.get('name', '').strip()
 
     if not name:
         return jsonify({'error': 'Tag name is required'}), 400
 
-    existing = Tag.query.filter_by(name=name).first()
+    # Case-insensitive check for existing tag
+    existing = Tag.query.filter(Tag.name.ilike(name)).first()
     if existing:
-        return jsonify({'id': existing.id, 'name': existing.name})
+        return jsonify({'id': existing.id, 'name': existing.name, 'color': existing.color or 'gray'})
 
-    tag = Tag(name=name)
+    tag = Tag(name=name, color=Tag.random_color())
     db.session.add(tag)
     db.session.commit()
-    return jsonify({'id': tag.id, 'name': tag.name})
+    return jsonify({'id': tag.id, 'name': tag.name, 'color': tag.color})
+
+
+@app.route('/api/item/<int:id>/update', methods=['POST'])
+def api_update_item(id):
+    item = ReadingMaterial.query.get_or_404(id)
+    data = request.get_json()
+
+    field = data.get('field')
+    value = data.get('value')
+
+    if field == 'title':
+        if not value or not value.strip():
+            return jsonify({'error': 'Title is required'}), 400
+        item.title = value.strip()
+    elif field == 'link':
+        item.link = value.strip() if value else None
+    elif field == 'status_id':
+        item.status_id = int(value) if value else None
+    elif field == 'chapter_current':
+        item.chapter_current = max(0, int(value) if value else 0)
+    elif field == 'chapter_total':
+        item.chapter_total = int(value) if value else None
+    elif field == 'notes':
+        item.notes = value.strip() if value else None
+    elif field == 'tags':
+        # value is a list of tag names
+        item.tags.clear()
+        if value:
+            for tag_name in value:
+                tag_name = tag_name.strip()
+                if tag_name:
+                    # Case-insensitive search for existing tag
+                    tag = Tag.query.filter(Tag.name.ilike(tag_name)).first()
+                    if not tag:
+                        tag = Tag(name=tag_name, color=Tag.random_color())
+                        db.session.add(tag)
+                    item.tags.append(tag)
+    else:
+        return jsonify({'error': 'Invalid field'}), 400
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'item': {
+            'id': item.id,
+            'title': item.title,
+            'link': item.link,
+            'status_id': item.status_id,
+            'status_display': item.status_display,
+            'status_color': item.status_color,
+            'chapter_current': item.chapter_current,
+            'chapter_total': item.chapter_total,
+            'progress_percent': item.progress_percent,
+            'tags': [tag.name for tag in item.tags]
+        }
+    })
 
 
 if __name__ == '__main__':

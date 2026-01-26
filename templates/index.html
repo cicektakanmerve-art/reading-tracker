@@ -16,14 +16,26 @@
                 {% endfor %}
             </select>
 
-            <select name="tag" id="tag-filter" onchange="doSearch()">
-                <option value="">All Tags</option>
-                {% for tag in tags %}
-                    <option value="{{ tag.name }}" {% if current_tag == tag.name %}selected{% endif %}>{{ tag.name }}</option>
-                {% endfor %}
-            </select>
+            <div class="tag-filter-container">
+                <div class="tag-filter-box" id="tag-filter-box">
+                    <div class="selected-filter-tags" id="selected-filter-tags">
+                        {% for tag_name in current_tags %}
+                        <span class="filter-tag-chip" data-tag="{{ tag_name }}">
+                            {{ tag_name }}
+                            <button type="button" class="filter-tag-remove" data-tag="{{ tag_name }}">&times;</button>
+                        </span>
+                        {% endfor %}
+                    </div>
+                    <input type="text" id="tag-filter-input" placeholder="Filter by tags..." autocomplete="off">
+                </div>
+                <div class="tag-filter-dropdown" id="tag-filter-dropdown">
+                    {% for tag in tags %}
+                    <div class="tag-filter-option" data-tag="{{ tag.name }}">{{ tag.name }}</div>
+                    {% endfor %}
+                </div>
+            </div>
 
-            <a href="{{ url_for('index') }}" class="btn btn-secondary" id="clear-btn" {% if not current_status and not current_tag and not search_query %}style="display: none;"{% endif %}>Clear</a>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary" id="clear-btn" {% if not current_status and not current_tags and not search_query %}style="display: none;"{% endif %}>Clear</a>
         </div>
     </form>
 </div>
@@ -78,7 +90,7 @@
                     {% if item.tags %}
                     <div class="tags">
                         {% for tag in item.tags %}
-                            <a href="{{ url_for('index', tag=tag.name) }}" class="tag">{{ tag.name }}</a>
+                            <span class="tag tag-color-{{ tag.color or 'gray' }} tag-editable" data-tag="{{ tag.name }}" data-tag-id="{{ tag.id }}" data-color="{{ tag.color or 'gray' }}">{{ tag.name }}</span>
                         {% endfor %}
                     </div>
                     {% endif %}
@@ -113,9 +125,17 @@
 let searchTimeout;
 const searchInput = document.getElementById('search-input');
 const statusFilter = document.getElementById('status-filter');
-const tagFilter = document.getElementById('tag-filter');
 const clearBtn = document.getElementById('clear-btn');
 const loadingIndicator = document.getElementById('search-loading');
+
+// Multi-tag filter elements
+const tagFilterBox = document.getElementById('tag-filter-box');
+const tagFilterInput = document.getElementById('tag-filter-input');
+const tagFilterDropdown = document.getElementById('tag-filter-dropdown');
+const selectedFilterTags = document.getElementById('selected-filter-tags');
+
+// Track selected tags
+let selectedTags = [{% for tag_name in current_tags %}'{{ tag_name }}'{% if not loop.last %}, {% endif %}{% endfor %}];
 
 function debounce(func, wait) {
     return function(...args) {
@@ -179,7 +199,7 @@ function renderGroupedItems(groups) {
                         </div>
                         ${item.tags.length > 0 ? `
                             <div class="tags">
-                                ${item.tags.map(tag => `<a href="/?tag=${encodeURIComponent(tag)}" class="tag">${escapeHtml(tag)}</a>`).join('')}
+                                ${item.tags.map(tag => `<span class="tag tag-color-${tag.color || 'gray'} tag-editable" data-tag="${escapeHtml(tag.name)}" data-tag-id="${tag.id}" data-color="${tag.color || 'gray'}">${escapeHtml(tag.name)}</span>`).join('')}
                             </div>
                         ` : ''}
                         <div class="item-actions">
@@ -198,6 +218,7 @@ function renderGroupedItems(groups) {
     initCollapse();
     initDragAndDrop();
     initClickableCards();
+    initEditableTags();
 }
 
 function escapeHtml(text) {
@@ -207,19 +228,44 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function renderSelectedTags() {
+    selectedFilterTags.innerHTML = selectedTags.map(tag => `
+        <span class="filter-tag-chip" data-tag="${escapeHtml(tag)}">
+            ${escapeHtml(tag)}
+            <button type="button" class="filter-tag-remove" data-tag="${escapeHtml(tag)}">&times;</button>
+        </span>
+    `).join('');
+}
+
+function updateTagDropdown() {
+    const query = tagFilterInput.value.toLowerCase();
+    const options = tagFilterDropdown.querySelectorAll('.tag-filter-option');
+
+    options.forEach(option => {
+        const tagName = option.dataset.tag;
+        const matchesQuery = tagName.toLowerCase().includes(query);
+        const isSelected = selectedTags.includes(tagName);
+
+        if (matchesQuery && !isSelected) {
+            option.style.display = 'block';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+}
+
 function doSearch() {
     const query = searchInput.value;
     const status = statusFilter.value;
-    const tag = tagFilter.value;
 
     // Show/hide clear button
-    clearBtn.style.display = (query || status || tag) ? 'inline-block' : 'none';
+    clearBtn.style.display = (query || status || selectedTags.length > 0) ? 'inline-block' : 'none';
 
     // Update URL without reload
     const params = new URLSearchParams();
     if (query) params.set('q', query);
     if (status) params.set('status', status);
-    if (tag) params.set('tag', tag);
+    selectedTags.forEach(tag => params.append('tags', tag));
     const newUrl = params.toString() ? `/?${params.toString()}` : '/';
     history.replaceState(null, '', newUrl);
 
@@ -236,6 +282,54 @@ function doSearch() {
             console.error('Search error:', err);
         });
 }
+
+// Tag filter interactions
+tagFilterInput.addEventListener('focus', function() {
+    updateTagDropdown();
+    tagFilterDropdown.classList.add('show');
+});
+
+tagFilterInput.addEventListener('input', function() {
+    updateTagDropdown();
+    tagFilterDropdown.classList.add('show');
+});
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.tag-filter-container')) {
+        tagFilterDropdown.classList.remove('show');
+    }
+});
+
+tagFilterDropdown.addEventListener('click', function(e) {
+    const option = e.target.closest('.tag-filter-option');
+    if (option) {
+        const tagName = option.dataset.tag;
+        if (!selectedTags.includes(tagName)) {
+            selectedTags.push(tagName);
+            renderSelectedTags();
+            doSearch();
+        }
+        tagFilterInput.value = '';
+        updateTagDropdown();
+    }
+});
+
+selectedFilterTags.addEventListener('click', function(e) {
+    if (e.target.classList.contains('filter-tag-remove')) {
+        const tagName = e.target.dataset.tag;
+        selectedTags = selectedTags.filter(t => t !== tagName);
+        renderSelectedTags();
+        doSearch();
+    }
+});
+
+tagFilterInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Backspace' && !this.value && selectedTags.length > 0) {
+        selectedTags.pop();
+        renderSelectedTags();
+        doSearch();
+    }
+});
 
 searchInput.addEventListener('input', debounce(doSearch, 300));
 
@@ -402,6 +496,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initDragAndDrop();
     restoreGroupOrder();
     initClickableCards();
+    initEditableTags();
 });
 </script>
 {% endblock %}

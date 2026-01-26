@@ -55,6 +55,23 @@ class ReadingMaterial(db.Model):
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
+    color = db.Column(db.String(20), default='gray')  # Notion-style colors
+
+    TAG_COLORS = ['gray', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'brown']
+
+    @classmethod
+    def random_color(cls):
+        import random
+        return random.choice(cls.TAG_COLORS)
 
     def __repr__(self):
         return self.name
+
+
+class Note(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reading_material_id = db.Column(db.Integer, db.ForeignKey('reading_material.id'), nullable=False)
+
+    reading_material = db.relationship('ReadingMaterial', backref=db.backref('note_entries', lazy='dynamic', order_by='Note.created_at.desc()'))

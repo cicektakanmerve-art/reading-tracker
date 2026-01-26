@@ -45,7 +45,7 @@
                 <div class="selected-tags" id="selected-tags">
                     {% if item %}
                         {% for tag in item.tags %}
-                            <span class="tag-chip" data-tag="{{ tag.name }}">
+                            <span class="tag-chip tag-color-{{ tag.color or 'gray' }}" data-tag="{{ tag.name }}" data-color="{{ tag.color or 'gray' }}">
                                 {{ tag.name }}
                                 <button type="button" class="tag-remove" onclick="removeTag('{{ tag.name }}')">&times;</button>
                             </span>
@@ -74,7 +74,7 @@
 </div>
 
 <script>
-let selectedTags = new Set([{% for tag in item.tags %}'{{ tag.name }}'{% if not loop.last %}, {% endif %}{% endfor %}] || []);
+let selectedTags = new Map([{% for tag in item.tags %}['{{ tag.name }}', '{{ tag.color or "gray" }}']{% if not loop.last %}, {% endif %}{% endfor %}]);
 const tagInput = document.getElementById('tag-input');
 const tagSuggestions = document.getElementById('tag-suggestions');
 const selectedTagsContainer = document.getElementById('selected-tags');
@@ -82,18 +82,22 @@ const hiddenTagsInput = document.getElementById('tags');
 let searchTimeout;
 
 function updateHiddenInput() {
-    hiddenTagsInput.value = Array.from(selectedTags).join(', ');
+    hiddenTagsInput.value = Array.from(selectedTags.keys()).join(', ');
 }
 
-function addTag(tagName) {
-    tagName = tagName.trim().toLowerCase();
-    if (!tagName || selectedTags.has(tagName)) return;
+function addTag(tagName, tagColor) {
+    tagName = tagName.trim();
+    if (!tagName) return;
+    // Case-insensitive check for duplicates
+    const exists = Array.from(selectedTags.keys()).some(t => t.toLowerCase() === tagName.toLowerCase());
+    if (exists) return;
 
-    selectedTags.add(tagName);
+    selectedTags.set(tagName, tagColor || 'gray');
 
     const chip = document.createElement('span');
-    chip.className = 'tag-chip';
+    chip.className = 'tag-chip tag-color-' + (tagColor || 'gray');
     chip.dataset.tag = tagName;
+    chip.dataset.color = tagColor || 'gray';
     chip.innerHTML = `${escapeHtml(tagName)} <button type="button" class="tag-remove" onclick="removeTag('${escapeHtml(tagName)}')">&times;</button>`;
     selectedTagsContainer.appendChild(chip);
 
@@ -121,12 +125,15 @@ function showSuggestions(tags) {
         return;
     }
 
-    tagSuggestions.innerHTML = tags
-        .filter(tag => !selectedTags.has(tag.name))
-        .map(tag => `<div class="tag-suggestion" onclick="addTag('${escapeHtml(tag.name)}')">${escapeHtml(tag.name)}</div>`)
+    const filtered = tags.filter(tag => !selectedTags.has(tag.name));
+
+    tagSuggestions.innerHTML = filtered
+        .map(tag => `<div class="tag-suggestion" data-name="${escapeHtml(tag.name)}" data-color="${tag.color || 'gray'}">
+            <span class="tag tag-color-${tag.color || 'gray'}">${escapeHtml(tag.name)}</span>
+        </div>`)
         .join('');
 
-    tagSuggestions.style.display = tagSuggestions.children.length > 0 ? 'block' : 'none';
+    tagSuggestions.style.display = filtered.length > 0 ? 'block' : 'none';
 }
 
 function searchTags(query) {
@@ -135,6 +142,14 @@ function searchTags(query) {
         .then(tags => showSuggestions(tags))
         .catch(err => console.error('Error fetching tags:', err));
 }
+
+// Handle clicking on suggestions
+tagSuggestions.addEventListener('click', function(e) {
+    const suggestion = e.target.closest('.tag-suggestion');
+    if (suggestion) {
+        addTag(suggestion.dataset.name, suggestion.dataset.color);
+    }
+});
 
 tagInput.addEventListener('input', function() {
     clearTimeout(searchTimeout);
@@ -167,11 +182,11 @@ tagInput.addEventListener('keydown', function(e) {
             })
             .then(response => response.json())
             .then(tag => {
-                addTag(tag.name);
+                addTag(tag.name, tag.color);
             })
             .catch(err => {
                 console.error('Error creating tag:', err);
-                addTag(value); // Fallback: add locally anyway
+                addTag(value, 'gray'); // Fallback
             });
         }
     } else if (e.key === 'Escape') {

@@ -37,6 +37,61 @@ nav {
 .nav-links {
     display: flex;
     gap: 0.5rem;
+    align-items: center;
+}
+
+/* Nav menu (kebab) */
+.nav-menu {
+    position: relative;
+}
+
+.nav-menu-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    color: rgba(255,255,255,0.8);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.nav-menu-toggle:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+}
+
+.nav-menu-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 0.5rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    min-width: 140px;
+    overflow: hidden;
+    z-index: 200;
+}
+
+.nav-menu-dropdown.show {
+    display: block;
+}
+
+.nav-menu-dropdown a {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: #333;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.1s;
+}
+
+.nav-menu-dropdown a:hover {
+    background: #f5f5f5;
 }
 
 main {
@@ -156,6 +211,114 @@ footer {
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 0.9rem;
+}
+
+/* Multi-tag filter */
+.tag-filter-container {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    max-width: 400px;
+}
+
+.tag-filter-box {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    min-height: 36px;
+    cursor: text;
+}
+
+.tag-filter-box:focus-within {
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.15);
+}
+
+.selected-filter-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.filter-tag-chip {
+    background: #3498db;
+    color: white;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.filter-tag-remove {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0;
+    opacity: 0.7;
+}
+
+.filter-tag-remove:hover {
+    opacity: 1;
+}
+
+#tag-filter-input {
+    border: none;
+    outline: none;
+    padding: 0.25rem;
+    font-size: 0.9rem;
+    flex: 1;
+    min-width: 100px;
+}
+
+.tag-filter-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    margin-top: 0.25rem;
+}
+
+.tag-filter-dropdown.show {
+    display: block;
+}
+
+.tag-filter-option {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.tag-filter-option:hover {
+    background: #f5f5f5;
+}
+
+/* Clickable tags in results */
+.tag-clickable {
+    cursor: pointer;
+    transition: transform 0.1s, background 0.1s;
+}
+
+.tag-clickable:hover {
+    transform: scale(1.05);
+    background: #bdc3c7;
 }
 
 /* Status Groups */
@@ -421,16 +584,62 @@ footer {
 }
 
 .tag {
-    background: #ecf0f1;
-    color: #2c3e50;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
     font-size: 0.8rem;
     text-decoration: none;
+    font-weight: 500;
 }
 
-.tag:hover {
-    background: #bdc3c7;
+/* Notion-style tag colors */
+.tag-color-gray {
+    background: #e3e2e0;
+    color: #5a5a5a;
+}
+
+.tag-color-red {
+    background: #ffe2dd;
+    color: #c4554d;
+}
+
+.tag-color-orange {
+    background: #fadec9;
+    color: #c77d48;
+}
+
+.tag-color-yellow {
+    background: #fdecc8;
+    color: #9f7425;
+}
+
+.tag-color-green {
+    background: #dbeddb;
+    color: #448361;
+}
+
+.tag-color-teal {
+    background: #d2f4ed;
+    color: #2b9a8a;
+}
+
+.tag-color-blue {
+    background: #d3e5ef;
+    color: #487ca5;
+}
+
+.tag-color-purple {
+    background: #e8deee;
+    color: #8b5fb5;
+}
+
+.tag-color-pink {
+    background: #f5e0e9;
+    color: #b65180;
+}
+
+.tag-color-brown {
+    background: #eee0da;
+    color: #8b6c5c;
 }
 
 /* Tag input */
@@ -453,26 +662,25 @@ footer {
 }
 
 .tag-chip {
-    background: #3498db;
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 20px;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
     font-size: 0.85rem;
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
+    font-weight: 500;
 }
 
 .tag-remove {
     background: none;
     border: none;
-    color: white;
+    color: inherit;
     cursor: pointer;
     font-size: 1rem;
     line-height: 1;
     padding: 0;
     margin-left: 0.25rem;
-    opacity: 0.8;
+    opacity: 0.7;
 }
 
 .tag-remove:hover {
@@ -691,6 +899,210 @@ footer {
     border-top: 1px solid #eee;
 }
 
+/* Notes section */
+.view-notes-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.notes-header {
+    margin-bottom: 0.75rem;
+}
+
+.notes-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #666;
+}
+
+.add-note-form {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.add-note-form textarea {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    resize: none;
+    min-height: 36px;
+    max-height: 100px;
+}
+
+.add-note-form textarea:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.send-btn {
+    padding: 0.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+}
+
+.send-btn svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+}
+
+.notes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.note-card {
+    background: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 12px;
+    border: 1px solid #e8e8e8;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.note-content {
+    flex: 1;
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.note-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.note-date {
+    font-size: 0.7rem;
+    color: #aaa;
+    white-space: nowrap;
+}
+
+/* Note menu */
+.note-menu {
+    position: relative;
+}
+
+.menu-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: #999;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.menu-toggle:hover {
+    background: #f0f0f0;
+    color: #666;
+}
+
+.menu-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 100;
+    min-width: 80px;
+    overflow: hidden;
+}
+
+.menu-dropdown.show {
+    display: block;
+}
+
+.menu-dropdown button {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.menu-dropdown button:hover {
+    background: #f5f5f5;
+}
+
+.menu-dropdown form {
+    margin: 0;
+}
+
+.menu-dropdown form button {
+    color: #e74c3c;
+}
+
+/* Edit note form */
+.edit-note-form {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.edit-note-form textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #3498db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 60px;
+}
+
+.edit-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.edit-actions .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.no-notes {
+    color: #888;
+    font-style: italic;
+    font-size: 0.9rem;
+    margin: 0.5rem 0;
+}
+
+.legacy-notes {
+    background: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 12px;
+    border: 1px solid #e8e8e8;
+    margin-bottom: 0.5rem;
+}
+
+.legacy-notes p {
+    white-space: pre-wrap;
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
 /* Status management */
 .statuses-container {
     max-width: 800px;
@@ -749,6 +1161,474 @@ footer {
     margin-top: 0.25rem;
 }
 
+/* Color picker */
+.color-picker {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.color-option {
+    cursor: pointer;
+}
+
+.color-option input {
+    display: none;
+}
+
+.color-swatch {
+    display: block;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    transition: transform 0.1s, border-color 0.1s;
+}
+
+.color-option:hover .color-swatch {
+    transform: scale(1.1);
+}
+
+.color-option input:checked + .color-swatch {
+    border-color: #333;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+}
+
+.tag-preview {
+    padding: 0.5rem 0;
+}
+
+/* Tag color picker popup */
+.tag-color-popup {
+    position: absolute;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    padding: 0.5rem;
+    z-index: 1000;
+    display: none;
+}
+
+.tag-color-popup.show {
+    display: block;
+}
+
+.tag-color-popup .color-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.35rem;
+}
+
+.tag-color-popup .color-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.1s, border-color 0.1s;
+}
+
+.tag-color-popup .color-dot:hover {
+    transform: scale(1.15);
+}
+
+.tag-color-popup .color-dot.selected {
+    border-color: #333;
+}
+
+/* Color dots */
+.color-dot.dot-gray { background: #e3e2e0; }
+.color-dot.dot-red { background: #ffe2dd; }
+.color-dot.dot-orange { background: #fadec9; }
+.color-dot.dot-yellow { background: #fdecc8; }
+.color-dot.dot-green { background: #dbeddb; }
+.color-dot.dot-teal { background: #d2f4ed; }
+.color-dot.dot-blue { background: #d3e5ef; }
+.color-dot.dot-purple { background: #e8deee; }
+.color-dot.dot-pink { background: #f5e0e9; }
+.color-dot.dot-brown { background: #eee0da; }
+
+/* Make tags clickable for color change */
+.tag-editable {
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.tag-editable:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* =====================================
+   Notion-style Inline Editing View
+   ===================================== */
+
+.view-container.notion-style {
+    background: white;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 3rem;
+}
+
+.view-container.notion-style .back-link {
+    margin: 0 0 1.5rem 0;
+}
+
+.view-container.notion-style .back-link a {
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.view-container.notion-style .back-link a:hover {
+    color: #333;
+}
+
+/* Editable title */
+.title-field {
+    margin-bottom: 1.5rem;
+}
+
+.title-edit {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #333;
+    padding: 0.25rem 0.5rem;
+    margin: 0 -0.5rem;
+    border-radius: 4px;
+    outline: none;
+    border: 2px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+    line-height: 1.3;
+}
+
+.title-edit:hover {
+    background: #f7f7f7;
+}
+
+.title-edit:focus {
+    background: white;
+    border-color: #3498db;
+}
+
+/* Property rows */
+.property-row {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.property-row:last-of-type {
+    border-bottom: none;
+}
+
+.property-label {
+    width: 100px;
+    flex-shrink: 0;
+    color: #888;
+    font-size: 0.9rem;
+    padding-top: 0.25rem;
+}
+
+.property-value {
+    flex: 1;
+}
+
+/* Status selector */
+.status-selector {
+    position: relative;
+}
+
+.clickable-status {
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.clickable-status:hover {
+    transform: scale(1.02);
+}
+
+.status-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.25rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 100;
+    min-width: 180px;
+    overflow: hidden;
+}
+
+.status-dropdown.show {
+    display: block;
+}
+
+.status-option {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.status-option:hover {
+    background: #f5f5f5;
+}
+
+.status-option.selected {
+    background: #e8f4fd;
+}
+
+/* Link field */
+.link-field {
+    min-height: 32px;
+}
+
+.link-display {
+    color: #3498db;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: background 0.15s;
+    display: inline-block;
+}
+
+.link-display:hover {
+    background: #f0f0f0;
+}
+
+.empty-placeholder {
+    color: #aaa;
+}
+
+.inline-input {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #3498db;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    width: 100%;
+    max-width: 400px;
+}
+
+.inline-input:focus {
+    outline: none;
+}
+
+/* Progress counter */
+.progress-counter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.counter-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    transition: all 0.15s;
+}
+
+.counter-btn:hover {
+    background: #f0f0f0;
+    border-color: #bbb;
+    color: #333;
+}
+
+.counter-btn:active {
+    background: #e0e0e0;
+}
+
+.chapter-input-inline {
+    width: 50px;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    text-align: center;
+    background: transparent;
+    transition: all 0.15s;
+}
+
+.chapter-input-inline:hover {
+    background: #f0f0f0;
+}
+
+.chapter-input-inline:focus {
+    outline: none;
+    border-color: #3498db;
+    background: white;
+}
+
+.chapter-total-input {
+    color: #666;
+}
+
+.chapter-separator {
+    color: #aaa;
+}
+
+.progress-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: 0.5rem;
+}
+
+.progress-bar-mini {
+    width: 80px;
+    height: 6px;
+    background: #e8e8e8;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill-mini {
+    height: 100%;
+    background: #3498db;
+    transition: width 0.3s;
+}
+
+.progress-percent {
+    font-size: 0.85rem;
+    color: #888;
+}
+
+/* Tags editor */
+.tags-editor {
+    position: relative;
+}
+
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem;
+    border-radius: 4px;
+    min-height: 32px;
+}
+
+
+.tag-input-inline {
+    border: none;
+    outline: none;
+    padding: 0.25rem;
+    font-size: 0.9rem;
+    min-width: 80px;
+    flex: 1;
+    background: transparent;
+}
+
+.tag-input-inline::placeholder {
+    color: #bbb;
+}
+
+.tags-editor .tag-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-width: 250px;
+    margin-top: 0.25rem;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.create-tag {
+    color: #3498db;
+    font-style: italic;
+}
+
+/* Section divider */
+.section-divider {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 2rem 0;
+}
+
+/* Notes section in Notion style */
+.notes-section {
+    margin-top: 0;
+}
+
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.notes-section .notes-list {
+    margin-bottom: 1rem;
+}
+
+.notes-section .note-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+}
+
+.notes-section .note-footer {
+    justify-content: space-between;
+}
+
+.legacy-notes-block {
+    background: #fffce6;
+    border-left: 3px solid #f9a825;
+    padding: 0.75rem 1rem;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 1rem;
+}
+
+.legacy-notes-block p {
+    margin: 0;
+    font-size: 0.95rem;
+    white-space: pre-wrap;
+}
+
+/* Meta info */
+.meta-info {
+    display: flex;
+    gap: 0.5rem;
+    color: #aaa;
+    font-size: 0.85rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f0f0f0;
+}
+
+/* Danger zone */
+.danger-zone {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f0f0f0;
+}
+
+.btn-danger-text {
+    background: none;
+    border: none;
+    color: #e74c3c;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0.5rem 0;
+}
+
+.btn-danger-text:hover {
+    text-decoration: underline;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     main {
@@ -776,5 +1656,26 @@ footer {
         flex-direction: column;
         gap: 1rem;
         align-items: flex-start;
+    }
+
+    .view-container.notion-style {
+        padding: 1.5rem;
+    }
+
+    .title-edit {
+        font-size: 1.5rem;
+    }
+
+    .property-row {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .property-label {
+        width: auto;
+    }
+
+    .progress-counter {
+        flex-wrap: wrap;
     }
 }

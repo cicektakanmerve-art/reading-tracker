@@ -14,7 +14,7 @@
         {% for item in tags %}
         <div class="tag-card">
             <div class="tag-info">
-                <span class="tag">{{ item.tag.name }}</span>
+                <span class="tag tag-color-{{ item.tag.color or 'gray' }} tag-editable" data-tag-id="{{ item.tag.id }}" data-color="{{ item.tag.color or 'gray' }}">{{ item.tag.name }}</span>
                 <span class="tag-count">{{ item.count }} item{% if item.count != 1 %}s{% endif %}</span>
             </div>
             <div class="tag-actions">

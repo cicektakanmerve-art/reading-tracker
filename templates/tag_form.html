@@ -13,10 +13,51 @@
             <small>Lowercase, will be normalized automatically.</small>
         </div>
 
+        <div class="form-group">
+            <label>Color</label>
+            <div class="color-picker">
+                {% set colors = ['gray', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'brown'] %}
+                {% set current_color = tag.color if tag else default_color %}
+                {% for color in colors %}
+                <label class="color-option">
+                    <input type="radio" name="color" value="{{ color }}" {% if current_color == color %}checked{% endif %}>
+                    <span class="color-swatch tag-color-{{ color }}"></span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Preview</label>
+            <div class="tag-preview">
+                <span class="tag tag-color-{{ tag.color if tag else default_color }}" id="tag-preview">{{ tag.name if tag else 'sample tag' }}</span>
+            </div>
+        </div>
+
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">{{ 'Update' if tag else 'Add' }}</button>
             <a href="{{ url_for('tags') }}" class="btn btn-secondary">Cancel</a>
         </div>
     </form>
 </div>
+
+<script>
+const nameInput = document.getElementById('name');
+const colorInputs = document.querySelectorAll('input[name="color"]');
+const tagPreview = document.getElementById('tag-preview');
+
+function updatePreview() {
+    const name = nameInput.value || 'sample tag';
+    const color = document.querySelector('input[name="color"]:checked').value;
+
+    tagPreview.textContent = name;
+    tagPreview.className = 'tag tag-color-' + color;
+}
+
+nameInput.addEventListener('input', updatePreview);
+colorInputs.forEach(input => input.addEventListener('change', updatePreview));
+
+// Initialize preview
+updatePreview();
+</script>
 {% endblock %}

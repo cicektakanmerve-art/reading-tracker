@@ -11,9 +11,20 @@
         <nav>
             <a href="{{ url_for('index') }}" class="logo">Reading Tracker</a>
             <div class="nav-links">
-                <a href="{{ url_for('tags') }}" class="btn btn-secondary">Tags</a>
-                <a href="{{ url_for('statuses') }}" class="btn btn-secondary">Statuses</a>
                 <a href="{{ url_for('add') }}" class="btn btn-primary">+ Add New</a>
+                <div class="nav-menu">
+                    <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-label="Settings">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="5" r="2"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                            <circle cx="12" cy="19" r="2"></circle>
+                        </svg>
+                    </button>
+                    <div class="nav-menu-dropdown" id="nav-menu-dropdown">
+                        <a href="{{ url_for('tags') }}">Tags</a>
+                        <a href="{{ url_for('statuses') }}">Statuses</a>
+                    </div>
+                </div>
             </div>
         </nav>
     </header>
@@ -33,5 +44,141 @@
     <footer>
         <p>Reading Tracker</p>
     </footer>
+
+    <!-- Tag Color Picker Popup -->
+    <div class="tag-color-popup" id="tag-color-popup">
+        <div class="color-grid">
+            <div class="color-dot dot-gray" data-color="gray"></div>
+            <div class="color-dot dot-red" data-color="red"></div>
+            <div class="color-dot dot-orange" data-color="orange"></div>
+            <div class="color-dot dot-yellow" data-color="yellow"></div>
+            <div class="color-dot dot-green" data-color="green"></div>
+            <div class="color-dot dot-teal" data-color="teal"></div>
+            <div class="color-dot dot-blue" data-color="blue"></div>
+            <div class="color-dot dot-purple" data-color="purple"></div>
+            <div class="color-dot dot-pink" data-color="pink"></div>
+            <div class="color-dot dot-brown" data-color="brown"></div>
+        </div>
+    </div>
+
+    <script>
+    // Nav menu toggle
+    const navMenuToggle = document.getElementById('nav-menu-toggle');
+    const navMenuDropdown = document.getElementById('nav-menu-dropdown');
+
+    if (navMenuToggle && navMenuDropdown) {
+        navMenuToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            navMenuDropdown.classList.toggle('show');
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.nav-menu')) {
+                navMenuDropdown.classList.remove('show');
+            }
+        });
+    }
+
+    // Tag Color Picker
+    const tagColorPopup = document.getElementById('tag-color-popup');
+    let currentTagElement = null;
+    let currentTagId = null;
+    let onColorChangeCallback = null;
+
+    function showTagColorPopup(tagElement, tagId, currentColor, onChangeCallback) {
+        currentTagElement = tagElement;
+        currentTagId = tagId;
+        onColorChangeCallback = onChangeCallback;
+
+        // Position popup below the tag
+        const rect = tagElement.getBoundingClientRect();
+        tagColorPopup.style.left = rect.left + window.scrollX + 'px';
+        tagColorPopup.style.top = rect.bottom + window.scrollY + 4 + 'px';
+
+        // Mark current color as selected
+        tagColorPopup.querySelectorAll('.color-dot').forEach(dot => {
+            dot.classList.toggle('selected', dot.dataset.color === currentColor);
+        });
+
+        tagColorPopup.classList.add('show');
+    }
+
+    function hideTagColorPopup() {
+        tagColorPopup.classList.remove('show');
+        currentTagElement = null;
+        currentTagId = null;
+        onColorChangeCallback = null;
+    }
+
+    // Handle color selection
+    tagColorPopup.addEventListener('click', async function(e) {
+        const colorDot = e.target.closest('.color-dot');
+        if (!colorDot) return;
+
+        const newColor = colorDot.dataset.color;
+
+        if (currentTagId && currentTagElement) {
+            // Update via API
+            try {
+                const response = await fetch(`/api/tags/${currentTagId}/color`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ color: newColor })
+                });
+
+                if (response.ok) {
+                    // Update the tag element's color class
+                    const classes = currentTagElement.className.split(' ').filter(c => !c.startsWith('tag-color-'));
+                    classes.push('tag-color-' + newColor);
+                    currentTagElement.className = classes.join(' ');
+                    currentTagElement.dataset.color = newColor;
+
+                    // Call callback if provided
+                    if (onColorChangeCallback) {
+                        onColorChangeCallback(newColor);
+                    }
+                }
+            } catch (err) {
+                console.error('Error updating tag color:', err);
+            }
+        } else if (currentTagElement && onColorChangeCallback) {
+            // Local update only (for unsaved tags)
+            const classes = currentTagElement.className.split(' ').filter(c => !c.startsWith('tag-color-'));
+            classes.push('tag-color-' + newColor);
+            currentTagElement.className = classes.join(' ');
+            currentTagElement.dataset.color = newColor;
+            onColorChangeCallback(newColor);
+        }
+
+        hideTagColorPopup();
+    });
+
+    // Close popup when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.tag-color-popup') && !e.target.closest('.tag-editable')) {
+            hideTagColorPopup();
+        }
+    });
+
+    // Initialize editable tags on page
+    function initEditableTags() {
+        document.querySelectorAll('.tag-editable').forEach(tag => {
+            if (tag.dataset.initialized) return;
+            tag.dataset.initialized = 'true';
+
+            tag.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const tagId = this.dataset.tagId;
+                const currentColor = this.dataset.color || 'gray';
+
+                showTagColorPopup(this, tagId, currentColor, null);
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', initEditableTags);
+    </script>
 </body>
 </html>

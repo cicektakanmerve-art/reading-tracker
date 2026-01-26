@@ -3,57 +3,567 @@
 {% block title %}{{ item.title }} - Reading Tracker{% endblock %}
 
 {% block content %}
-<div class="view-container">
-    <div class="view-header">
-        <h2>{{ item.title }}</h2>
-        <span class="status-badge status-{{ item.status_color }}">{{ item.status_display }}</span>
+<div class="view-container notion-style">
+    <div class="back-link">
+        <a href="{{ url_for('index') }}">&larr; Back to List</a>
     </div>
 
-    {% if item.link %}
-    <p class="view-link">
-        <strong>Link:</strong>
-        <a href="{{ item.link }}" target="_blank">{{ item.link }}</a>
-    </p>
-    {% endif %}
+    <!-- Editable Title -->
+    <div class="editable-field title-field">
+        <h1 contenteditable="true"
+            data-field="title"
+            data-id="{{ item.id }}"
+            class="inline-edit title-edit">{{ item.title }}</h1>
+    </div>
 
-    <div class="view-progress">
-        <strong>Progress:</strong>
-        Chapter {{ item.chapter_current }}{% if item.chapter_total %} / {{ item.chapter_total }}{% endif %}
-        {% if item.progress_percent is not none %}
-            ({{ item.progress_percent }}%)
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ item.progress_percent }}%"></div>
+    <!-- Status Badge (clickable dropdown) -->
+    <div class="property-row">
+        <span class="property-label">Status</span>
+        <div class="property-value status-selector" data-id="{{ item.id }}">
+            <span class="status-badge status-{{ item.status_color }} clickable-status" id="current-status">
+                {{ item.status_display }}
+            </span>
+            <div class="status-dropdown" id="status-dropdown">
+                <div class="status-option {% if not item.status_id %}selected{% endif %}" data-status-id="">
+                    <span class="status-badge status-gray">No Status</span>
+                </div>
+                {% for status in statuses %}
+                <div class="status-option {% if item.status_id == status.id %}selected{% endif %}" data-status-id="{{ status.id }}">
+                    <span class="status-badge status-{{ status.color }}">{{ status.display_name }}</span>
+                </div>
+                {% endfor %}
             </div>
+        </div>
+    </div>
+
+    <!-- Link (editable) -->
+    <div class="property-row">
+        <span class="property-label">Link</span>
+        <div class="property-value link-field">
+            {% if item.link %}
+            <a href="{{ item.link }}" target="_blank" class="link-display" id="link-display">{{ item.link }}</a>
+            {% else %}
+            <span class="empty-placeholder link-display" id="link-display">Add a link...</span>
+            {% endif %}
+            <input type="url"
+                   class="inline-input link-input"
+                   id="link-input"
+                   value="{{ item.link or '' }}"
+                   placeholder="https://..."
+                   data-field="link"
+                   data-id="{{ item.id }}"
+                   style="display: none;">
+        </div>
+    </div>
+
+    <!-- Progress with counter -->
+    <div class="property-row">
+        <span class="property-label">Progress</span>
+        <div class="property-value progress-counter">
+            <button type="button" class="counter-btn minus" data-id="{{ item.id }}" data-action="decrease">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+            <input type="number"
+                   class="chapter-input-inline"
+                   id="chapter-current"
+                   value="{{ item.chapter_current }}"
+                   min="0"
+                   data-field="chapter_current"
+                   data-id="{{ item.id }}">
+            <span class="chapter-separator">/</span>
+            <input type="number"
+                   class="chapter-input-inline chapter-total-input"
+                   id="chapter-total"
+                   value="{{ item.chapter_total or '' }}"
+                   min="0"
+                   placeholder="?"
+                   data-field="chapter_total"
+                   data-id="{{ item.id }}">
+            <button type="button" class="counter-btn plus" data-id="{{ item.id }}" data-action="increase">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+            {% if item.progress_percent is not none %}
+            <div class="progress-indicator">
+                <div class="progress-bar-mini">
+                    <div class="progress-fill-mini" id="progress-fill" style="width: {{ item.progress_percent }}%"></div>
+                </div>
+                <span class="progress-percent" id="progress-percent">{{ item.progress_percent }}%</span>
+            </div>
+            {% else %}
+            <div class="progress-indicator" id="progress-indicator" style="display: none;">
+                <div class="progress-bar-mini">
+                    <div class="progress-fill-mini" id="progress-fill" style="width: 0%"></div>
+                </div>
+                <span class="progress-percent" id="progress-percent">0%</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tags (inline editor) -->
+    <div class="property-row">
+        <span class="property-label">Tags</span>
+        <div class="property-value tags-editor" data-id="{{ item.id }}">
+            <div class="tags-container" id="tags-container">
+                {% for tag in item.tags %}
+                <span class="tag-chip tag-color-{{ tag.color or 'gray' }} tag-editable" data-tag="{{ tag.name }}" data-tag-id="{{ tag.id }}" data-color="{{ tag.color or 'gray' }}">
+                    {{ tag.name }}
+                    <button type="button" class="tag-remove" data-tag="{{ tag.name }}">&times;</button>
+                </span>
+                {% endfor %}
+                <input type="text"
+                       class="tag-input-inline"
+                       id="tag-input"
+                       placeholder="Add tag..."
+                       autocomplete="off">
+            </div>
+            <div class="tag-suggestions" id="tag-suggestions"></div>
+        </div>
+    </div>
+
+    <!-- Divider -->
+    <hr class="section-divider">
+
+    <!-- Notes Section -->
+    <div class="notes-section">
+        <h3 class="section-title">Notes</h3>
+
+        {% if item.notes %}
+        <div class="legacy-notes-block">
+            <p>{{ item.notes }}</p>
+        </div>
         {% endif %}
-    </div>
 
-    {% if item.tags %}
-    <div class="view-tags">
-        <strong>Tags:</strong>
-        {% for tag in item.tags %}
-            <span class="tag">{{ tag.name }}</span>
-        {% endfor %}
-    </div>
-    {% endif %}
+        {% if notes %}
+        <div class="notes-list">
+            {% for note in notes %}
+            <div class="note-card" id="note-{{ note.id }}">
+                <div class="note-content" id="note-content-{{ note.id }}">{{ note.content }}</div>
+                <div class="note-footer">
+                    <span class="note-date">{{ note.created_at.strftime('%b %d, %Y %H:%M') }}</span>
+                    <div class="note-menu">
+                        <button type="button" class="menu-toggle" onclick="toggleNoteMenu({{ note.id }})">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="5" r="2"></circle>
+                                <circle cx="12" cy="12" r="2"></circle>
+                                <circle cx="12" cy="19" r="2"></circle>
+                            </svg>
+                        </button>
+                        <div class="menu-dropdown" id="menu-{{ note.id }}">
+                            <button type="button" onclick="editNote({{ note.id }})">Edit</button>
+                            <form method="post" action="{{ url_for('delete_note', id=note.id) }}" onsubmit="return confirm('Delete this note?');">
+                                <button type="submit">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <form method="post" action="{{ url_for('edit_note', id=note.id) }}" class="edit-note-form" id="edit-form-{{ note.id }}" style="display: none;">
+                    <textarea name="content">{{ note.content }}</textarea>
+                    <div class="edit-actions">
+                        <button type="submit" class="btn btn-primary btn-small">Save</button>
+                        <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit({{ note.id }})">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
-    {% if item.notes %}
-    <div class="view-notes">
-        <strong>Notes:</strong>
-        <p>{{ item.notes }}</p>
-    </div>
-    {% endif %}
+        {% if not notes and not item.notes %}
+        <p class="no-notes">No notes yet. Add your first note below.</p>
+        {% endif %}
 
-    <div class="view-meta">
-        <p><strong>Created:</strong> {{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
-        <p><strong>Updated:</strong> {{ item.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
-    </div>
-
-    <div class="view-actions">
-        <a href="{{ url_for('edit', id=item.id) }}" class="btn btn-primary">Edit</a>
-        <form method="post" action="{{ url_for('delete', id=item.id) }}" class="delete-form" onsubmit="return confirm('Delete this item?');">
-            <button type="submit" class="btn btn-danger">Delete</button>
+        <form method="post" action="{{ url_for('add_note', id=item.id) }}" class="add-note-form">
+            <textarea name="content" rows="2" placeholder="Write a note..."></textarea>
+            <button type="submit" class="btn btn-primary send-btn" title="Add Note">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
         </form>
-        <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to List</a>
+    </div>
+
+    <!-- Meta info -->
+    <div class="meta-info">
+        <span>Created {{ item.created_at.strftime('%b %d, %Y') }}</span>
+        <span>&middot;</span>
+        <span>Updated {{ item.updated_at.strftime('%b %d, %Y') }}</span>
+    </div>
+
+    <!-- Delete action -->
+    <div class="danger-zone">
+        <form method="post" action="{{ url_for('delete', id=item.id) }}" onsubmit="return confirm('Delete this item permanently?');">
+            <button type="submit" class="btn btn-danger-text">Delete this item</button>
+        </form>
     </div>
 </div>
+
+<script>
+const itemId = {{ item.id }};
+let openMenuId = null;
+
+// Debounce helper
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+// API update function
+async function updateField(field, value) {
+    try {
+        const response = await fetch(`/api/item/${itemId}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ field, value })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            console.error('Update failed:', data.error);
+            return null;
+        }
+        return data.item;
+    } catch (err) {
+        console.error('Update error:', err);
+        return null;
+    }
+}
+
+// Title editing
+document.querySelector('.title-edit').addEventListener('blur', async function() {
+    const newTitle = this.textContent.trim();
+    if (newTitle) {
+        await updateField('title', newTitle);
+    } else {
+        // Restore if empty
+        this.textContent = '{{ item.title }}';
+    }
+});
+
+document.querySelector('.title-edit').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        this.blur();
+    }
+});
+
+// Link editing
+const linkDisplay = document.getElementById('link-display');
+const linkInput = document.getElementById('link-input');
+
+linkDisplay.addEventListener('click', function(e) {
+    if (e.target.tagName === 'A') {
+        // Allow link click-through with Ctrl/Cmd
+        if (e.ctrlKey || e.metaKey) return;
+        e.preventDefault();
+    }
+    linkDisplay.style.display = 'none';
+    linkInput.style.display = 'block';
+    linkInput.focus();
+    linkInput.select();
+});
+
+linkInput.addEventListener('blur', async function() {
+    const newLink = this.value.trim();
+    const result = await updateField('link', newLink);
+
+    linkInput.style.display = 'none';
+    linkDisplay.style.display = 'inline';
+
+    if (newLink) {
+        linkDisplay.href = newLink;
+        linkDisplay.textContent = newLink;
+        linkDisplay.className = 'link-display';
+    } else {
+        linkDisplay.removeAttribute('href');
+        linkDisplay.textContent = 'Add a link...';
+        linkDisplay.className = 'empty-placeholder link-display';
+    }
+});
+
+linkInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        this.blur();
+    }
+    if (e.key === 'Escape') {
+        this.value = linkDisplay.href || '';
+        this.blur();
+    }
+});
+
+// Status selector
+const statusSelector = document.querySelector('.status-selector');
+const currentStatus = document.getElementById('current-status');
+const statusDropdown = document.getElementById('status-dropdown');
+
+currentStatus.addEventListener('click', function() {
+    statusDropdown.classList.toggle('show');
+});
+
+document.querySelectorAll('.status-option').forEach(option => {
+    option.addEventListener('click', async function() {
+        const statusId = this.dataset.statusId;
+        const result = await updateField('status_id', statusId || null);
+
+        if (result) {
+            currentStatus.className = `status-badge status-${result.status_color} clickable-status`;
+            currentStatus.textContent = result.status_display;
+
+            // Update selected state
+            document.querySelectorAll('.status-option').forEach(o => o.classList.remove('selected'));
+            this.classList.add('selected');
+        }
+        statusDropdown.classList.remove('show');
+    });
+});
+
+// Close status dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.status-selector')) {
+        statusDropdown.classList.remove('show');
+    }
+});
+
+// Progress counter
+const chapterCurrent = document.getElementById('chapter-current');
+const chapterTotal = document.getElementById('chapter-total');
+const progressFill = document.getElementById('progress-fill');
+const progressPercent = document.getElementById('progress-percent');
+const progressIndicator = document.getElementById('progress-indicator');
+
+function updateProgressDisplay(current, total) {
+    if (total && total > 0) {
+        const percent = Math.round((current / total) * 100);
+        progressFill.style.width = percent + '%';
+        progressPercent.textContent = percent + '%';
+        if (progressIndicator) progressIndicator.style.display = 'flex';
+    } else {
+        if (progressIndicator) progressIndicator.style.display = 'none';
+    }
+}
+
+document.querySelectorAll('.counter-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const action = this.dataset.action;
+        let current = parseInt(chapterCurrent.value) || 0;
+
+        if (action === 'increase') {
+            current++;
+        } else if (action === 'decrease' && current > 0) {
+            current--;
+        }
+
+        chapterCurrent.value = current;
+        const result = await updateField('chapter_current', current);
+        if (result) {
+            updateProgressDisplay(result.chapter_current, result.chapter_total);
+        }
+    });
+});
+
+const debouncedChapterUpdate = debounce(async function(field, value) {
+    const result = await updateField(field, value);
+    if (result) {
+        updateProgressDisplay(result.chapter_current, result.chapter_total);
+    }
+}, 500);
+
+chapterCurrent.addEventListener('input', function() {
+    debouncedChapterUpdate('chapter_current', this.value);
+});
+
+chapterTotal.addEventListener('input', function() {
+    debouncedChapterUpdate('chapter_total', this.value);
+});
+
+// Tags editor
+const tagsContainer = document.getElementById('tags-container');
+const tagInput = document.getElementById('tag-input');
+const tagSuggestions = document.getElementById('tag-suggestions');
+let currentTags = [{% for tag in item.tags %}{ id: {{ tag.id }}, name: '{{ tag.name }}', color: '{{ tag.color or "gray" }}' }{% if not loop.last %}, {% endif %}{% endfor %}];
+let tagColorMap = {}; // Cache tag colors
+
+async function saveTags() {
+    await updateField('tags', currentTags.map(t => t.name));
+}
+
+function renderTags() {
+    const chips = tagsContainer.querySelectorAll('.tag-chip');
+    chips.forEach(chip => chip.remove());
+
+    currentTags.forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = `tag-chip tag-color-${tag.color || 'gray'} tag-editable`;
+        chip.dataset.tag = tag.name;
+        chip.dataset.tagId = tag.id;
+        chip.dataset.color = tag.color || 'gray';
+        chip.innerHTML = `${escapeHtml(tag.name)}<button type="button" class="tag-remove" data-tag="${escapeHtml(tag.name)}">&times;</button>`;
+        tagsContainer.insertBefore(chip, tagInput);
+    });
+
+    // Reinitialize editable tags
+    if (typeof initEditableTags === 'function') {
+        initEditableTags();
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+tagsContainer.addEventListener('click', async function(e) {
+    if (e.target.classList.contains('tag-remove')) {
+        const tagName = e.target.dataset.tag;
+        currentTags = currentTags.filter(t => t.name !== tagName);
+        renderTags();
+        await saveTags();
+    }
+});
+
+tagInput.addEventListener('input', debounce(async function() {
+    const query = this.value.trim();
+    if (query.length < 1) {
+        tagSuggestions.innerHTML = '';
+        tagSuggestions.style.display = 'none';
+        return;
+    }
+
+    const response = await fetch(`/api/tags?q=${encodeURIComponent(query)}`);
+    const tags = await response.json();
+
+    // Cache colors
+    tags.forEach(t => tagColorMap[t.name] = t.color);
+
+    const currentTagNames = currentTags.map(t => t.name);
+    const filtered = tags.filter(t => !currentTagNames.includes(t.name));
+
+    if (filtered.length === 0 && query) {
+        tagSuggestions.innerHTML = `<div class="tag-suggestion create-tag">Create "${escapeHtml(query)}"</div>`;
+    } else {
+        tagSuggestions.innerHTML = filtered.map(t =>
+            `<div class="tag-suggestion" data-tag-id="${t.id}" data-name="${escapeHtml(t.name)}" data-color="${t.color}">
+                <span class="tag tag-color-${t.color}">${escapeHtml(t.name)}</span>
+            </div>`
+        ).join('');
+        if (query && !tags.some(t => t.name.toLowerCase() === query.toLowerCase())) {
+            tagSuggestions.innerHTML += `<div class="tag-suggestion create-tag">Create "${escapeHtml(query)}"</div>`;
+        }
+    }
+    tagSuggestions.style.display = 'block';
+}, 200));
+
+tagSuggestions.addEventListener('click', async function(e) {
+    const suggestion = e.target.closest('.tag-suggestion');
+    if (!suggestion) return;
+
+    let tagId, tagName, tagColor;
+    if (suggestion.classList.contains('create-tag')) {
+        tagName = tagInput.value.trim();
+        // Create the tag via API
+        const resp = await fetch('/api/tags/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: tagName })
+        });
+        const newTag = await resp.json();
+        tagId = newTag.id;
+        tagColor = newTag.color || 'gray';
+    } else {
+        tagId = parseInt(suggestion.dataset.tagId);
+        tagName = suggestion.dataset.name;
+        tagColor = suggestion.dataset.color || tagColorMap[tagName] || 'gray';
+    }
+
+    const currentTagNamesLower = currentTags.map(t => t.name.toLowerCase());
+    if (tagName && !currentTagNamesLower.includes(tagName.toLowerCase())) {
+        currentTags.push({ id: tagId, name: tagName, color: tagColor });
+        renderTags();
+        await saveTags();
+    }
+
+    tagInput.value = '';
+    tagSuggestions.innerHTML = '';
+    tagSuggestions.style.display = 'none';
+});
+
+tagInput.addEventListener('keydown', async function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const tagName = this.value.trim();
+        const currentTagNamesLower = currentTags.map(t => t.name.toLowerCase());
+        if (tagName && !currentTagNamesLower.includes(tagName.toLowerCase())) {
+            // Create tag if needed
+            const resp = await fetch('/api/tags/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: tagName })
+            });
+            const newTag = await resp.json();
+            currentTags.push({ id: newTag.id, name: newTag.name, color: newTag.color || 'gray' });
+            renderTags();
+            await saveTags();
+        }
+        this.value = '';
+        tagSuggestions.innerHTML = '';
+        tagSuggestions.style.display = 'none';
+    }
+    if (e.key === 'Backspace' && !this.value && currentTags.length > 0) {
+        currentTags.pop();
+        renderTags();
+        await saveTags();
+    }
+});
+
+// Close tag suggestions when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.tags-editor')) {
+        tagSuggestions.style.display = 'none';
+    }
+});
+
+// Notes menu functions
+function toggleNoteMenu(noteId) {
+    const menu = document.getElementById('menu-' + noteId);
+
+    if (openMenuId && openMenuId !== noteId) {
+        document.getElementById('menu-' + openMenuId).classList.remove('show');
+    }
+
+    menu.classList.toggle('show');
+    openMenuId = menu.classList.contains('show') ? noteId : null;
+}
+
+function editNote(noteId) {
+    document.getElementById('menu-' + noteId).classList.remove('show');
+    openMenuId = null;
+
+    document.getElementById('note-content-' + noteId).style.display = 'none';
+    document.getElementById('note-' + noteId).querySelector('.note-footer').style.display = 'none';
+    document.getElementById('edit-form-' + noteId).style.display = 'block';
+}
+
+function cancelEdit(noteId) {
+    document.getElementById('note-content-' + noteId).style.display = 'block';
+    document.getElementById('note-' + noteId).querySelector('.note-footer').style.display = 'flex';
+    document.getElementById('edit-form-' + noteId).style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.note-menu') && openMenuId) {
+        document.getElementById('menu-' + openMenuId).classList.remove('show');
+        openMenuId = null;
+    }
+});
+</script>
 {% endblock %}
