@@ -1,9 +1,10 @@
+import os
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from models import db, ReadingMaterial, Tag, Status, Note
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'dev-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///reading_tracker.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///reading_tracker.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
