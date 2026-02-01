@@ -28,10 +28,13 @@ class ReadingMaterial(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
     link = db.Column(db.String(500), nullable=True)
+    image_url = db.Column(db.String(500), nullable=True)  # Banner/cover image
     status_id = db.Column(db.Integer, db.ForeignKey('status.id'), nullable=True)
     chapter_current = db.Column(db.Integer, default=0)
     chapter_total = db.Column(db.Integer, nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    scraped_comments = db.Column(db.Text, nullable=True)  # JSON array of comments from source
+    total_comments_count = db.Column(db.Integer, nullable=True)  # Total comments on source
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -14,7 +14,24 @@
 
         <div class="form-group">
             <label for="link">Link (URL)</label>
-            <input type="url" id="link" name="link" value="{{ item.link if item and item.link else '' }}" placeholder="https://...">
+            <div class="url-input-row">
+                <input type="url" id="link" name="link" value="{{ item.link if item and item.link else '' }}" placeholder="https://...">
+                <button type="button" id="fetch-url-btn" class="btn btn-secondary" onclick="fetchUrlMetadata()">
+                    <span class="fetch-text">Fetch</span>
+                    <span class="fetch-loading" style="display:none;">...</span>
+                </button>
+            </div>
+            <small class="fetch-hint">Paste a URL and click Fetch to autofill details</small>
+        </div>
+
+        <div class="form-group">
+            <label for="image_url">Banner Image URL (optional)</label>
+            <input type="url" id="image_url" name="image_url" value="{{ item.image_url if item and item.image_url else '' }}" placeholder="https://... (auto-filled from URL)">
+            <div id="image-preview" class="image-preview" {% if not item or not item.image_url %}style="display:none;"{% endif %}>
+                {% if item and item.image_url %}
+                <img src="{{ item.image_url }}" alt="Preview" onerror="this.parentElement.style.display='none';">
+                {% endif %}
+            </div>
         </div>
 
         <div class="form-group">
@@ -66,6 +83,17 @@
             <textarea id="notes" name="notes" rows="4" placeholder="Your notes...">{{ item.notes if item and item.notes else '' }}</textarea>
         </div>
 
+        <!-- Scraped comments preview -->
+        <div class="form-group" id="comments-preview-section" style="display: none;">
+            <label>Comments from Source</label>
+            <div id="comments-preview" class="comments-preview"></div>
+            <small id="comments-count"></small>
+        </div>
+
+        <!-- Hidden fields for scraped data -->
+        <input type="hidden" id="scraped_comments" name="scraped_comments" value="{{ item.scraped_comments if item and item.scraped_comments else '' }}">
+        <input type="hidden" id="total_comments_count" name="total_comments_count" value="{{ item.total_comments_count if item and item.total_comments_count else '' }}">
+
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">{{ 'Update' if item else 'Add' }}</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
@@ -74,6 +102,198 @@
 </div>
 
 <script>
+// URL Fetch functionality
+async function fetchUrlMetadata() {
+    const urlInput = document.getElementById('link');
+    const url = urlInput.value.trim();
+
+    if (!url) {
+        alert('Please enter a URL first');
+        return;
+    }
+
+    const btn = document.getElementById('fetch-url-btn');
+    const fetchText = btn.querySelector('.fetch-text');
+    const fetchLoading = btn.querySelector('.fetch-loading');
+
+    // Show loading state
+    btn.disabled = true;
+    fetchText.style.display = 'none';
+    fetchLoading.style.display = 'inline';
+
+    try {
+        const response = await fetch('/api/scrape-url', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url: url})
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            const data = result.data;
+
+            // Autofill title if empty or confirm replacement
+            const titleInput = document.getElementById('title');
+            if (data.title) {
+                if (!titleInput.value.trim() || confirm('Replace existing title with: "' + data.title + '"?')) {
+                    titleInput.value = data.title;
+                }
+            }
+
+            // Update URL with final redirected URL
+            if (data.url && data.url !== url) {
+                urlInput.value = data.url;
+            }
+
+            // Autofill chapter info
+            if (data.chapter_current !== null) {
+                const currentInput = document.getElementById('chapter_current');
+                if (!currentInput.value || currentInput.value === '0') {
+                    currentInput.value = data.chapter_current;
+                }
+            }
+
+            if (data.chapter_total !== null) {
+                const totalInput = document.getElementById('chapter_total');
+                if (!totalInput.value) {
+                    totalInput.value = data.chapter_total;
+                }
+            }
+
+            // Autofill image URL
+            if (data.image_url) {
+                const imageInput = document.getElementById('image_url');
+                if (!imageInput.value.trim()) {
+                    imageInput.value = data.image_url;
+                    showImagePreview(data.image_url);
+                }
+            }
+
+            // Add suggested tags
+            if (data.suggested_tags && data.suggested_tags.length > 0) {
+                for (const tagName of data.suggested_tags) {
+                    // Check if tag already exists
+                    const exists = Array.from(selectedTags.keys()).some(t => t.toLowerCase() === tagName.toLowerCase());
+                    if (!exists) {
+                        // Create tag via API to get proper color
+                        try {
+                            const tagResponse = await fetch('/api/tags/create', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({name: tagName})
+                            });
+                            const tag = await tagResponse.json();
+                            addTag(tag.name, tag.color);
+                        } catch (e) {
+                            addTag(tagName, 'gray');
+                        }
+                    }
+                }
+            }
+
+            // Show description in notes if empty
+            if (data.description) {
+                const notesInput = document.getElementById('notes');
+                if (!notesInput.value.trim()) {
+                    notesInput.value = data.description;
+                }
+            }
+
+            // Handle scraped comments
+            if (data.comments && data.comments.length > 0) {
+                const commentsJson = JSON.stringify(data.comments);
+                document.getElementById('scraped_comments').value = commentsJson;
+                document.getElementById('total_comments_count').value = data.total_comments || data.comments.length;
+
+                // Show preview
+                showCommentsPreview(data.comments, data.total_comments, url);
+            }
+
+        } else {
+            alert(result.error || 'Failed to fetch URL metadata');
+        }
+    } catch (error) {
+        console.error('Fetch error:', error);
+        alert('Failed to fetch URL. Please check the URL and try again.');
+    } finally {
+        // Reset button state
+        btn.disabled = false;
+        fetchText.style.display = 'inline';
+        fetchLoading.style.display = 'none';
+    }
+}
+
+// Auto-fetch when pasting a URL
+document.getElementById('link').addEventListener('paste', function(e) {
+    // Wait for paste to complete
+    setTimeout(() => {
+        const url = this.value.trim();
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+            // Only auto-fetch if title is empty
+            const titleInput = document.getElementById('title');
+            if (!titleInput.value.trim()) {
+                fetchUrlMetadata();
+            }
+        }
+    }, 100);
+});
+
+// Image preview functionality
+function showImagePreview(url) {
+    const preview = document.getElementById('image-preview');
+    if (url) {
+        preview.innerHTML = `<img src="${url}" alt="Preview" onerror="this.parentElement.style.display='none';">`;
+        preview.style.display = 'block';
+    } else {
+        preview.style.display = 'none';
+    }
+}
+
+// Comments preview functionality
+function showCommentsPreview(comments, totalCount, sourceUrl) {
+    const section = document.getElementById('comments-preview-section');
+    const preview = document.getElementById('comments-preview');
+    const countEl = document.getElementById('comments-count');
+
+    if (!comments || comments.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    section.style.display = 'block';
+
+    // Show first 3 comments in preview
+    const previewComments = comments.slice(0, 3);
+    preview.innerHTML = previewComments.map(c => `
+        <div class="comment-preview-item">
+            ${c.author ? `<span class="comment-author">${escapeHtml(c.author)}</span>` : ''}
+            <p class="comment-text">${escapeHtml(c.text.substring(0, 150))}${c.text.length > 150 ? '...' : ''}</p>
+        </div>
+    `).join('');
+
+    // Show count info
+    const total = totalCount || comments.length;
+    if (total > 3) {
+        countEl.innerHTML = `Found ${total} comments. <a href="${sourceUrl}" target="_blank">View all on source</a>`;
+    } else {
+        countEl.textContent = `Found ${total} comment${total !== 1 ? 's' : ''}`;
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Update preview when image URL changes
+document.getElementById('image_url').addEventListener('input', function() {
+    const url = this.value.trim();
+    showImagePreview(url);
+});
+
 let selectedTags = new Map([{% for tag in item.tags %}['{{ tag.name }}', '{{ tag.color or "gray" }}']{% if not loop.last %}, {% endif %}{% endfor %}]);
 const tagInput = document.getElementById('tag-input');
 const tagSuggestions = document.getElementById('tag-suggestions');
@@ -111,12 +331,6 @@ function removeTag(tagName) {
     const chip = selectedTagsContainer.querySelector(`[data-tag="${tagName}"]`);
     if (chip) chip.remove();
     updateHiddenInput();
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 function showSuggestions(tags) {

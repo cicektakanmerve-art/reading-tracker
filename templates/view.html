@@ -4,6 +4,12 @@
 
 {% block content %}
 <div class="view-container notion-style">
+    {% if item.image_url %}
+    <div class="banner-image">
+        <img src="{{ item.image_url }}" alt="{{ item.title }}" onerror="this.parentElement.style.display='none';">
+    </div>
+    {% endif %}
+
     <div class="back-link">
         <a href="{{ url_for('index') }}">&larr; Back to List</a>
     </div>
@@ -51,6 +57,26 @@
                    value="{{ item.link or '' }}"
                    placeholder="https://..."
                    data-field="link"
+                   data-id="{{ item.id }}"
+                   style="display: none;">
+        </div>
+    </div>
+
+    <!-- Image URL (editable) -->
+    <div class="property-row">
+        <span class="property-label">Image</span>
+        <div class="property-value link-field">
+            {% if item.image_url %}
+            <span class="link-display image-url-display" id="image-url-display">{{ item.image_url[:50] }}{% if item.image_url|length > 50 %}...{% endif %}</span>
+            {% else %}
+            <span class="empty-placeholder image-url-display" id="image-url-display">Add image URL...</span>
+            {% endif %}
+            <input type="url"
+                   class="inline-input image-url-input"
+                   id="image-url-input"
+                   value="{{ item.image_url or '' }}"
+                   placeholder="https://..."
+                   data-field="image_url"
                    data-id="{{ item.id }}"
                    style="display: none;">
         </div>
@@ -189,6 +215,40 @@
         </form>
     </div>
 
+    <!-- Scraped Comments Section -->
+    {% if item.scraped_comments %}
+    {% set comments = item.scraped_comments|safe|from_json %}
+    {% if comments %}
+    <div class="scraped-comments-section">
+        <h3>Comments from Source</h3>
+        <div class="scraped-comments-list">
+            {% for comment in comments[:10] %}
+            <div class="scraped-comment">
+                <div class="scraped-comment-header">
+                    {% if comment.author %}
+                    <span class="scraped-comment-author">{{ comment.author }}</span>
+                    {% endif %}
+                    {% if comment.date %}
+                    <span class="scraped-comment-date">{{ comment.date }}</span>
+                    {% endif %}
+                </div>
+                <p class="scraped-comment-text">{{ comment.text }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% if item.total_comments_count and item.total_comments_count > 10 %}
+        <div class="view-more-comments">
+            <a href="{{ item.link }}" target="_blank">View all {{ item.total_comments_count }} comments on source &rarr;</a>
+        </div>
+        {% elif comments|length > 10 %}
+        <div class="view-more-comments">
+            <a href="{{ item.link }}" target="_blank">View more comments on source &rarr;</a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
+
     <!-- Meta info -->
     <div class="meta-info">
         <span>Created {{ item.created_at.strftime('%b %d, %Y') }}</span>
@@ -296,6 +356,60 @@ linkInput.addEventListener('keydown', function(e) {
     }
     if (e.key === 'Escape') {
         this.value = linkDisplay.href || '';
+        this.blur();
+    }
+});
+
+// Image URL inline editing
+const imageUrlDisplay = document.getElementById('image-url-display');
+const imageUrlInput = document.getElementById('image-url-input');
+const bannerImage = document.querySelector('.banner-image');
+
+imageUrlDisplay.addEventListener('click', function(e) {
+    imageUrlDisplay.style.display = 'none';
+    imageUrlInput.style.display = 'block';
+    imageUrlInput.focus();
+    imageUrlInput.select();
+});
+
+imageUrlInput.addEventListener('blur', async function() {
+    const newImageUrl = this.value.trim();
+    const result = await updateField('image_url', newImageUrl);
+
+    imageUrlInput.style.display = 'none';
+    imageUrlDisplay.style.display = 'inline';
+
+    if (newImageUrl) {
+        imageUrlDisplay.textContent = newImageUrl.length > 50 ? newImageUrl.substring(0, 50) + '...' : newImageUrl;
+        imageUrlDisplay.className = 'link-display image-url-display';
+
+        // Update or create banner image
+        if (bannerImage) {
+            bannerImage.querySelector('img').src = newImageUrl;
+            bannerImage.style.display = 'block';
+        } else {
+            const container = document.querySelector('.view-container.notion-style');
+            const newBanner = document.createElement('div');
+            newBanner.className = 'banner-image';
+            newBanner.innerHTML = `<img src="${newImageUrl}" alt="Banner" onerror="this.parentElement.style.display='none';">`;
+            container.insertBefore(newBanner, container.firstChild);
+        }
+    } else {
+        imageUrlDisplay.textContent = 'Add image URL...';
+        imageUrlDisplay.className = 'empty-placeholder image-url-display';
+        if (bannerImage) {
+            bannerImage.style.display = 'none';
+        }
+    }
+});
+
+imageUrlInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        this.blur();
+    }
+    if (e.key === 'Escape') {
+        this.value = '{{ item.image_url or "" }}';
         this.blur();
     }
 });
